@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Droit à l'image — Le Pré de la Bataille</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📸</text></svg>">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body { font-family: 'DM Sans', 'Segoe UI', system-ui, sans-serif; background: #f0f4ff; overflow-x: hidden; }
+    #root { min-height: 100vh; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #fafbff 0%, #f0f4ff 100%); }
+    input, select, button { font-family: inherit; }
+    @media (min-width: 601px) { #root { box-shadow: 0 0 40px rgba(0,0,0,0.08); } }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useEffect, useCallback } = React;
+
+    const ETABLISSEMENTS = ["FH", "SAVS", "FAM", "CAJ", "HI"];
+    const MESURES = ["Aucune", "Tutelle", "Curatelle", "Sauvegarde de justice", "Habilitation familiale"];
+    const VIEWS = { HOME: "home", RESIDENTS: "residents", RECUEIL: "recueil", HISTORIQUE: "historique" };
+
+    const loadData = (key, fallback) => {
+      try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; }
+      catch { return fallback; }
+    };
+    const saveData = (key, data) => {
+      try { localStorage.setItem(key, JSON.stringify(data)); } catch {}
+    };
+    const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+    const fmtDate = (d) => new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
+    const fmtDateTime = (d) => new Date(d).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+
+    const exportCSV = (consentements, residents) => {
+      const resMap = {};
+      residents.forEach(r => { resMap[r.id] = r; });
+      const header = "Date;Heure;Etablissement;Activite;Nom;Prenom;Mesure de protection;Photo autorisee;Diffusion interne;Diffusion externe;Recueilli par\n";
+      const rows = consentements.map(c => {
+        const r = resMap[c.residentId] || {};
+        const dt = new Date(c.timestamp);
+        return [
+          dt.toLocaleDateString("fr-FR"),
+          dt.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }),
+          c.etablissement, c.activite, r.nom || "Inconnu", r.prenom || "",
+          r.mesure || "", c.photo ? "Oui" : "Non", c.diffInterne ? "Oui" : "Non",
+          c.diffExterne ? "Oui" : "Non", c.recueilliPar || ""
+        ].join(";");
+      }).join("\n");
+      const blob = new Blob(["\uFEFF" + header + rows], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a"); a.href = url;
+      a.download = "consentements_droit_image_" + new Date().toISOString().slice(0,10) + ".csv";
+      a.click(); URL.revokeObjectURL(url);
+    };
+
+    const Toggle = ({ value, onChange }) => (
+      <div style={{ display: "flex", gap: 2 }}>
+        <button onClick={() => onChange(true)} style={{
+          padding: "7px 14px", border: "none", borderRadius: "6px 0 0 6px", cursor: "pointer",
+          fontFamily: "inherit", fontSize: 13, fontWeight: 600,
+          background: value ? "#059669" : "#e5e7eb", color: value ? "#fff" : "#6b7280",
+          transition: "all 0.15s"
+        }}>Oui</button>
+        <button onClick={() => onChange(false)} style={{
+          padding: "7px 14px", border: "none", borderRadius: "0 6px 6px 0", cursor: "pointer",
+          fontFamily: "inherit", fontSize: 13, fontWeight: 600,
+          background: !value ? "#dc2626" : "#e5e7eb", color: !value ? "#fff" : "#6b7280",
+          transition: "all 0.15s"
+        }}>Non</button>
+      </div>
+    );
+
+    const Badge = ({ children, color = "#6366f1" }) => (
+      <span style={{
+        display: "inline-block", padding: "2px 10px", borderRadius: 20, fontSize: 11,
+        fontWeight: 700, letterSpacing: 0.5, background: color + "18", color,
+        textTransform: "uppercase"
+      }}>{children}</span>
+    );
+
+    const S = {
+      card: { background: "#fff", borderRadius: 12, padding: 20, boxShadow: "0 1px 4px rgba(0,0,0,0.06)", border: "1px solid #e8ecf3" },
+      btnP: { padding: "10px 20px", border: "none", borderRadius: 8, cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 600, background: "#2d5a87", color: "#fff", transition: "all 0.15s" },
+      btnS: { padding: "10px 20px", border: "none", borderRadius: 8, cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 600, background: "#e5e7eb", color: "#374151", transition: "all 0.15s" },
+      btnOk: { padding: "10px 20px", border: "none", borderRadius: 8, cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 600, background: "#059669", color: "#fff", transition: "all 0.15s" },
+      input: { width: "100%", padding: "10px 14px", border: "1px solid #d1d5db", borderRadius: 8, fontFamily: "inherit", fontSize: 14, outline: "none", boxSizing: "border-box" },
+      label: { display: "block", fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.5 },
+    };
+
+    const ResidentForm = ({ initial, onSave, onCancel, defaultEtab }) => {
+      const [nom, setNom] = useState(initial?.nom || "");
+      const [prenom, setPrenom] = useState(initial?.prenom || "");
+      const [mesure, setMesure] = useState(initial?.mesure || "Aucune");
+      const [etab, setEtab] = useState(initial?.etablissement || defaultEtab || ETABLISSEMENTS[0]);
+      return (
+        <div style={{ ...S.card, marginBottom: 16 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+            <div><label style={S.label}>Nom</label><input style={S.input} value={nom} onChange={e => setNom(e.target.value)} placeholder="NOM" /></div>
+            <div><label style={S.label}>Prénom</label><input style={S.input} value={prenom} onChange={e => setPrenom(e.target.value)} placeholder="Prénom" /></div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+            <div><label style={S.label}>Établissement</label>
+              <select style={{ ...S.input, background: "#fff" }} value={etab} onChange={e => setEtab(e.target.value)}>
+                {ETABLISSEMENTS.map(e => <option key={e} value={e}>{e}</option>)}
+              </select></div>
+            <div><label style={S.label}>Mesure de protection</label>
+              <select style={{ ...S.input, background: "#fff" }} value={mesure} onChange={e => setMesure(e.target.value)}>
+                {MESURES.map(m => <option key={m} value={m}>{m}</option>)}
+              </select></div>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button style={{ ...S.btnP, opacity: (!nom.trim() || !prenom.trim()) ? 0.5 : 1 }}
+              disabled={!nom.trim() || !prenom.trim()}
+              onClick={() => onSave({ nom: nom.trim().toUpperCase(), prenom: prenom.trim(), mesure, etablissement: etab })}>
+              Enregistrer</button>
+            <button style={S.btnS} onClick={onCancel}>Annuler</button>
+          </div>
+        </div>
+      );
+    };
+
+    function App() {
+      const [view, setView] = useState(VIEWS.HOME);
+      const [residents, setResidents] = useState(() => loadData("pdb_residents", []));
+      const [consentements, setConsentements] = useState(() => loadData("pdb_consentements", []));
+      const [selectedEtab, setSelectedEtab] = useState(null);
+      const [editResident, setEditResident] = useState(null);
+      const [showAddForm, setShowAddForm] = useState(false);
+      const [recueilEtab, setRecueilEtab] = useState("");
+      const [recueilActivite, setRecueilActivite] = useState("");
+      const [recueilDate, setRecueilDate] = useState(new Date().toISOString().slice(0, 10));
+      const [recueilPar, setRecueilPar] = useState("");
+      const [recueilConsents, setRecueilConsents] = useState({});
+      const [recueilStep, setRecueilStep] = useState(0);
+      const [filtreEtab, setFiltreEtab] = useState("");
+      const [filtreDate, setFiltreDate] = useState("");
+      const [filtreResident, setFiltreResident] = useState("");
+
+      useEffect(() => { saveData("pdb_residents", residents); }, [residents]);
+      useEffect(() => { saveData("pdb_consentements", consentements); }, [consentements]);
+
+      const residentsForEtab = (etab) => residents.filter(r => r.etablissement === etab).sort((a, b) => a.nom.localeCompare(b.nom));
+
+      const addResident = (data) => { setResidents(prev => [...prev, { id: uid(), ...data }]); setShowAddForm(false); };
+      const updateResident = (id, data) => { setResidents(prev => prev.map(r => r.id === id ? { ...r, ...data } : r)); setEditResident(null); };
+      const deleteResident = (id) => { if (confirm("Supprimer cette personne accompagnée ?")) setResidents(prev => prev.filter(r => r.id !== id)); };
+
+      const initRecueil = () => {
+        const initial = {};
+        residentsForEtab(recueilEtab).forEach(r => { initial[r.id] = { photo: false, diffInterne: false, diffExterne: false, included: true }; });
+        setRecueilConsents(initial);
+        setRecueilStep(1);
+      };
+
+      const saveRecueil = () => {
+        const timestamp = new Date().toISOString();
+        const newC = Object.entries(recueilConsents).filter(([_, v]) => v.included).map(([resId, v]) => ({
+          id: uid(), residentId: resId, etablissement: recueilEtab, activite: recueilActivite,
+          date: recueilDate, timestamp, photo: v.photo, diffInterne: v.diffInterne,
+          diffExterne: v.diffExterne, recueilliPar: recueilPar
+        }));
+        setConsentements(prev => [...prev, ...newC]);
+        setRecueilStep(2);
+      };
+
+      const resetRecueil = () => {
+        setRecueilEtab(""); setRecueilActivite(""); setRecueilDate(new Date().toISOString().slice(0, 10));
+        setRecueilPar(""); setRecueilConsents({}); setRecueilStep(0);
+      };
+
+      const filteredHisto = consentements.filter(c => {
+        if (filtreEtab && c.etablissement !== filtreEtab) return false;
+        if (filtreDate && c.date !== filtreDate) return false;
+        if (filtreResident) {
+          const r = residents.find(x => x.id === c.residentId);
+          if (!r || !(r.nom + " " + r.prenom).toLowerCase().includes(filtreResident.toLowerCase())) return false;
+        }
+        return true;
+      }).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+      const navBtn = (active) => ({
+        padding: "8px 16px", border: "none", borderRadius: 8, cursor: "pointer",
+        fontFamily: "inherit", fontSize: 13, fontWeight: 600,
+        background: active ? "rgba(255,255,255,0.2)" : "transparent", color: "#fff",
+        transition: "all 0.15s", whiteSpace: "nowrap"
+      });
+
+      const etabBtn = (active) => ({
+        padding: "6px 14px", border: "none", borderRadius: 20, cursor: "pointer",
+        fontFamily: "inherit", fontSize: 12, fontWeight: 600,
+        background: active ? "#2d5a87" : "#e5e7eb", color: active ? "#fff" : "#374151"
+      });
+
+      // ─── HOME ───
+      const renderHome = () => (
+        <div style={{ padding: 24 }}>
+          <div style={{ textAlign: "center", marginBottom: 32 }}>
+            <div style={{ fontSize: 40, marginBottom: 8 }}>📸</div>
+            <h2 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px", color: "#1e3a5f" }}>Recueil du droit à l'image</h2>
+            <p style={{ color: "#64748b", fontSize: 14, margin: 0 }}>Association Le Pré de la Bataille</p>
+          </div>
+          <div style={{ display: "grid", gap: 12, marginBottom: 24 }}>
+            {[
+              { icon: "✏️", title: "Nouveau recueil", desc: "Recueillir les consentements pour une activité", action: () => { resetRecueil(); setView(VIEWS.RECUEIL); }, accent: true },
+              { icon: "👥", title: "Personnes accompagnées", desc: residents.length + " personne" + (residents.length > 1 ? "s" : "") + " enregistrée" + (residents.length > 1 ? "s" : ""), action: () => setView(VIEWS.RESIDENTS) },
+              { icon: "📋", title: "Historique & Export", desc: consentements.length + " consentement" + (consentements.length > 1 ? "s" : "") + " enregistré" + (consentements.length > 1 ? "s" : ""), action: () => setView(VIEWS.HISTORIQUE) },
+            ].map((item, i) => (
+              <button key={i} onClick={item.action} style={{ ...S.card, cursor: "pointer", display: "flex", alignItems: "center", gap: 16, textAlign: "left", border: item.accent ? "2px solid #2d5a87" : "1px solid #e8ecf3" }}>
+                <span style={{ fontSize: 28 }}>{item.icon}</span>
+                <div><div style={{ fontSize: 16, fontWeight: 700, color: "#1e3a5f" }}>{item.title}</div>
+                <div style={{ fontSize: 13, color: "#64748b" }}>{item.desc}</div></div>
+              </button>
+            ))}
+          </div>
+          <div style={{ ...S.card, background: "#f0f9ff", borderColor: "#bae6fd" }}>
+            <div style={{ fontSize: 13, color: "#0369a1", lineHeight: 1.6 }}>
+              <strong>Rappel HAS 2.2.5</strong> — Les professionnels recueillent le choix de la personne accompagnée sur son droit à l'image et respectent ce choix. Consentement libre, spécifique, éclairé et univoque (RGPD art. 7).
+            </div>
+          </div>
+        </div>
+      );
+
+      // ─── RESIDENTS ───
+      const renderResidents = () => (
+        <div style={{ padding: 24 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+            <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: "#1e3a5f" }}>Personnes accompagnées</h2>
+            <button style={S.btnP} onClick={() => { setShowAddForm(true); setEditResident(null); }}>+ Ajouter</button>
+          </div>
+          {showAddForm && <ResidentForm defaultEtab={selectedEtab} onSave={addResident} onCancel={() => setShowAddForm(false)} />}
+          <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+            <button style={etabBtn(!selectedEtab)} onClick={() => setSelectedEtab(null)}>Tous ({residents.length})</button>
+            {ETABLISSEMENTS.map(e => <button key={e} style={etabBtn(selectedEtab === e)} onClick={() => setSelectedEtab(e)}>{e} ({residentsForEtab(e).length})</button>)}
+          </div>
+          {(selectedEtab ? residentsForEtab(selectedEtab) : [...residents].sort((a, b) => a.nom.localeCompare(b.nom))).map(r => (
+            editResident === r.id ? (
+              <ResidentForm key={r.id} initial={r} onSave={(data) => updateResident(r.id, data)} onCancel={() => setEditResident(null)} />
+            ) : (
+              <div key={r.id} style={{ ...S.card, marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 20px" }}>
+                <div>
+                  <span style={{ fontWeight: 700, fontSize: 15 }}>{r.nom}</span>
+                  <span style={{ fontWeight: 400, fontSize: 15, marginLeft: 6 }}>{r.prenom}</span>
+                  <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+                    <Badge color="#2d5a87">{r.etablissement}</Badge>
+                    {r.mesure && r.mesure !== "Aucune" && <Badge color="#d97706">{r.mesure}</Badge>}
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button style={{ ...S.btnS, padding: "6px 12px", fontSize: 12 }} onClick={() => { setEditResident(r.id); setShowAddForm(false); }}>Modifier</button>
+                  <button style={{ ...S.btnP, background: "#dc2626", padding: "6px 12px", fontSize: 12 }} onClick={() => deleteResident(r.id)}>×</button>
+                </div>
+              </div>
+            )
+          ))}
+          {residents.length === 0 && <div style={{ textAlign: "center", padding: 40, color: "#94a3b8" }}>
+            <div style={{ fontSize: 32, marginBottom: 8 }}>👥</div>
+            <p>Aucune personne enregistrée.</p><p style={{ fontSize: 13 }}>Commencez par ajouter les personnes de chaque établissement.</p>
+          </div>}
+        </div>
+      );
+
+      // ─── RECUEIL ───
+      const renderRecueil = () => {
+        if (recueilStep === 2) {
+          const count = Object.values(recueilConsents).filter(v => v.included).length;
+          return (
+            <div style={{ padding: 24, textAlign: "center" }}>
+              <div style={{ ...S.card, padding: 40 }}>
+                <div style={{ fontSize: 48, marginBottom: 16 }}>✅</div>
+                <h2 style={{ fontSize: 20, fontWeight: 700, color: "#059669", margin: "0 0 8px" }}>Consentements enregistrés</h2>
+                <p style={{ color: "#64748b", margin: "0 0 24px" }}>{count} consentement{count > 1 ? "s" : ""} pour « {recueilActivite} »</p>
+                <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+                  <button style={S.btnP} onClick={resetRecueil}>Nouveau recueil</button>
+                  <button style={S.btnS} onClick={() => { resetRecueil(); setView(VIEWS.HOME); }}>Accueil</button>
+                </div>
+              </div>
+            </div>
+          );
+        }
+        if (recueilStep === 0) {
+          return (
+            <div style={{ padding: 24 }}>
+              <h2 style={{ fontSize: 18, fontWeight: 700, margin: "0 0 20px", color: "#1e3a5f" }}>Nouveau recueil</h2>
+              <div style={S.card}>
+                <div style={{ display: "grid", gap: 16 }}>
+                  <div><label style={S.label}>Établissement</label>
+                    <select style={{ ...S.input, background: "#fff" }} value={recueilEtab} onChange={e => setRecueilEtab(e.target.value)}>
+                      <option value="">— Sélectionner —</option>
+                      {ETABLISSEMENTS.map(e => <option key={e} value={e}>{e} ({residentsForEtab(e).length} pers.)</option>)}
+                    </select></div>
+                  <div><label style={S.label}>Activité</label>
+                    <input style={S.input} value={recueilActivite} onChange={e => setRecueilActivite(e.target.value)} placeholder="Ex : Atelier peinture, Sortie parc..." /></div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                    <div><label style={S.label}>Date</label><input style={S.input} type="date" value={recueilDate} onChange={e => setRecueilDate(e.target.value)} /></div>
+                    <div><label style={S.label}>Recueilli par</label><input style={S.input} value={recueilPar} onChange={e => setRecueilPar(e.target.value)} placeholder="Prénom du pro" /></div>
+                  </div>
+                </div>
+                <button style={{ ...S.btnP, marginTop: 20, width: "100%", opacity: (!recueilEtab || !recueilActivite.trim()) ? 0.5 : 1 }}
+                  disabled={!recueilEtab || !recueilActivite.trim()} onClick={initRecueil}>
+                  Commencer le recueil →</button>
+                {recueilEtab && residentsForEtab(recueilEtab).length === 0 && (
+                  <div style={{ marginTop: 12, padding: 12, background: "#fef3c7", borderRadius: 8, fontSize: 13, color: "#92400e" }}>
+                    ⚠️ Aucune personne enregistrée pour {recueilEtab}.</div>
+                )}
+              </div>
+            </div>
+          );
+        }
+        // Step 1
+        const etabR = residentsForEtab(recueilEtab);
+        const inclCount = Object.values(recueilConsents).filter(v => v.included).length;
+        return (
+          <div style={{ padding: 24 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+              <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: "#1e3a5f" }}>{recueilActivite}</h2>
+              <Badge color="#2d5a87">{recueilEtab}</Badge>
+            </div>
+            <p style={{ color: "#64748b", fontSize: 13, margin: "0 0 16px" }}>
+              {fmtDate(recueilDate)}{recueilPar && " • " + recueilPar} • {inclCount} personne{inclCount > 1 ? "s" : ""}
+            </p>
+            <div style={{ marginBottom: 12, display: "flex", gap: 8 }}>
+              <button style={{ ...S.btnS, fontSize: 12, padding: "6px 12px" }}
+                onClick={() => { const u = {...recueilConsents}; Object.keys(u).forEach(k => { u[k] = {...u[k], photo: true, diffInterne: true}; }); setRecueilConsents(u); }}>
+                ✓ Tout photo+interne</button>
+              <button style={{ ...S.btnS, fontSize: 12, padding: "6px 12px" }}
+                onClick={() => { const u = {...recueilConsents}; Object.keys(u).forEach(k => { u[k] = {...u[k], photo: false, diffInterne: false, diffExterne: false}; }); setRecueilConsents(u); }}>
+                ✗ Tout décocher</button>
+            </div>
+            {etabR.map(r => {
+              const c = recueilConsents[r.id] || { photo: false, diffInterne: false, diffExterne: false, included: true };
+              return (
+                <div key={r.id} style={{ ...S.card, marginBottom: 10, opacity: c.included ? 1 : 0.4, transition: "opacity 0.2s", padding: "16px 20px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: c.included ? 12 : 0 }}>
+                    <div>
+                      <span style={{ fontWeight: 700, fontSize: 15 }}>{r.nom}</span>
+                      <span style={{ fontWeight: 400, fontSize: 15, marginLeft: 6 }}>{r.prenom}</span>
+                      {r.mesure && r.mesure !== "Aucune" && <span style={{ marginLeft: 8 }}><Badge color="#d97706">{r.mesure}</Badge></span>}
+                    </div>
+                    <label style={{ fontSize: 12, color: "#94a3b8", cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
+                      <input type="checkbox" checked={c.included} onChange={e => setRecueilConsents(prev => ({...prev, [r.id]: {...prev[r.id], included: e.target.checked}}))} /> Présent
+                    </label>
+                  </div>
+                  {c.included && (
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+                      <div><div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 4, textTransform: "uppercase" }}>Photo</div>
+                        <Toggle value={c.photo} onChange={v => setRecueilConsents(prev => ({...prev, [r.id]: {...prev[r.id], photo: v}}))} /></div>
+                      <div><div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 4, textTransform: "uppercase" }}>Diff. interne</div>
+                        <Toggle value={c.diffInterne} onChange={v => setRecueilConsents(prev => ({...prev, [r.id]: {...prev[r.id], diffInterne: v}}))} /></div>
+                      <div><div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 4, textTransform: "uppercase" }}>Diff. externe</div>
+                        <Toggle value={c.diffExterne} onChange={v => setRecueilConsents(prev => ({...prev, [r.id]: {...prev[r.id], diffExterne: v}}))} /></div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            <div style={{ position: "sticky", bottom: 0, padding: "16px 0", background: "linear-gradient(transparent, #f0f4ff 20%)" }}>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button style={{ ...S.btnS, flex: 1 }} onClick={() => setRecueilStep(0)}>← Retour</button>
+                <button style={{ ...S.btnOk, flex: 2, opacity: inclCount === 0 ? 0.5 : 1 }} disabled={inclCount === 0} onClick={saveRecueil}>
+                  ✓ Enregistrer {inclCount} consentement{inclCount > 1 ? "s" : ""}</button>
+              </div>
+            </div>
+          </div>
+        );
+      };
+
+      // ─── HISTORIQUE ───
+      const renderHistorique = () => (
+        <div style={{ padding: 24 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 8 }}>
+            <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: "#1e3a5f" }}>Historique</h2>
+            <button style={{ ...S.btnP, fontSize: 12 }} onClick={() => exportCSV(filteredHisto, residents)} disabled={filteredHisto.length === 0}>
+              📥 Export CSV ({filteredHisto.length})</button>
+          </div>
+          <div style={{ ...S.card, marginBottom: 16 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+              <div><label style={S.label}>Établissement</label>
+                <select style={{ ...S.input, background: "#fff" }} value={filtreEtab} onChange={e => setFiltreEtab(e.target.value)}>
+                  <option value="">Tous</option>{ETABLISSEMENTS.map(e => <option key={e} value={e}>{e}</option>)}</select></div>
+              <div><label style={S.label}>Date</label><input style={S.input} type="date" value={filtreDate} onChange={e => setFiltreDate(e.target.value)} /></div>
+              <div><label style={S.label}>Personne</label><input style={S.input} value={filtreResident} onChange={e => setFiltreResident(e.target.value)} placeholder="Rechercher..." /></div>
+            </div>
+          </div>
+          {filteredHisto.length === 0 ? (
+            <div style={{ textAlign: "center", padding: 40, color: "#94a3b8" }}>
+              <div style={{ fontSize: 32, marginBottom: 8 }}>📋</div>
+              <p>Aucun consentement{filtreEtab || filtreDate || filtreResident ? " pour ces critères" : ""}.</p></div>
+          ) : filteredHisto.map(c => {
+            const r = residents.find(x => x.id === c.residentId);
+            const pill = (ok, label) => ({ fontSize: 12, padding: "2px 8px", borderRadius: 4, background: ok ? "#dcfce7" : "#fee2e2", color: ok ? "#166534" : "#991b1b" });
+            return (
+              <div key={c.id} style={{ ...S.card, marginBottom: 8, padding: "12px 20px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                  <div><span style={{ fontWeight: 700, fontSize: 14 }}>{r ? r.nom + " " + r.prenom : "Supprimé"}</span>
+                    <span style={{ marginLeft: 8 }}><Badge color="#2d5a87">{c.etablissement}</Badge></span></div>
+                  <span style={{ fontSize: 12, color: "#94a3b8" }}>{fmtDateTime(c.timestamp)}</span>
+                </div>
+                <div style={{ fontSize: 13, color: "#64748b", marginBottom: 6 }}>
+                  Activité : <strong>{c.activite}</strong>{c.recueilliPar && " • Par " + c.recueilliPar}</div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <span style={pill(c.photo)}>Photo : {c.photo ? "✓" : "✗"}</span>
+                  <span style={pill(c.diffInterne)}>Interne : {c.diffInterne ? "✓" : "✗"}</span>
+                  <span style={pill(c.diffExterne)}>Externe : {c.diffExterne ? "✓" : "✗"}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      );
+
+      return (
+        <div>
+          <div style={{
+            background: "linear-gradient(135deg, #1e3a5f 0%, #2d5a87 50%, #1e3a5f 100%)",
+            color: "#fff", padding: "20px 24px 16px", position: "sticky", top: 0, zIndex: 100,
+            boxShadow: "0 4px 20px rgba(30,58,95,0.25)"
+          }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+              <div style={{ fontSize: 17, fontWeight: 700 }}>📸 Droit à l'image</div>
+              <div style={{ fontSize: 11, opacity: 0.7 }}>Le Pré de la Bataille</div>
+            </div>
+            <div style={{ display: "flex", gap: 6, overflowX: "auto" }}>
+              <button style={navBtn(view === VIEWS.HOME)} onClick={() => setView(VIEWS.HOME)}>Accueil</button>
+              <button style={navBtn(view === VIEWS.RECUEIL)} onClick={() => { resetRecueil(); setView(VIEWS.RECUEIL); }}>Recueil</button>
+              <button style={navBtn(view === VIEWS.RESIDENTS)} onClick={() => setView(VIEWS.RESIDENTS)}>Personnes</button>
+              <button style={navBtn(view === VIEWS.HISTORIQUE)} onClick={() => setView(VIEWS.HISTORIQUE)}>Historique</button>
+            </div>
+          </div>
+          {view === VIEWS.HOME && renderHome()}
+          {view === VIEWS.RESIDENTS && renderResidents()}
+          {view === VIEWS.RECUEIL && renderRecueil()}
+          {view === VIEWS.HISTORIQUE && renderHistorique()}
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
