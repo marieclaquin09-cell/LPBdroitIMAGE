@@ -4,443 +4,505 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Droit à l'image — Le Pré de la Bataille</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📸</text></svg>">
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-    body { font-family: 'DM Sans', 'Segoe UI', system-ui, sans-serif; background: #f0f4ff; overflow-x: hidden; }
-    #root { min-height: 100vh; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #fafbff 0%, #f0f4ff 100%); }
-    input, select, button { font-family: inherit; }
-    @media (min-width: 601px) { #root { box-shadow: 0 0 40px rgba(0,0,0,0.08); } }
+    :root {
+      --or:#C9A84C;--or-light:#E8D5A0;--brun:#2C1F0E;--brun-mid:#4A3520;--brun-light:#7A5C3A;
+      --creme:#F5EFE0;--creme-dark:#EDE3CC;--blanc:#FDFAF4;--vert:#2D6A4F;--vert-light:#52B788;
+      --rouge:#C0392B;--gris:#6B6560;--radius:12px;
+      --shadow:0 4px 24px rgba(44,31,14,0.12);--shadow-sm:0 2px 8px rgba(44,31,14,0.08);
+    }
+    *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    body{font-family:'Montserrat',sans-serif;background:var(--brun);min-height:100vh;color:var(--brun)}
+    #root{min-height:100vh;max-width:680px;margin:0 auto;background:var(--creme)}
+    input,select,button,textarea{font-family:'Montserrat',sans-serif}
+    .header{background:var(--brun);padding:16px 20px 12px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,0.3)}
+    .logo-svg{height:36px;width:auto;flex-shrink:0}
+    .header-title{color:var(--or);font-size:1rem;font-weight:700;line-height:1.2}
+    .header-sub{color:var(--or-light);font-size:0.7rem;font-weight:300;opacity:0.8;margin-top:1px}
+    .header-badge{margin-left:auto;color:var(--or);font-size:0.75rem;font-weight:600;text-align:right}
+    .nav-bar{background:var(--brun-mid);display:flex;border-bottom:1px solid rgba(201,168,76,0.2)}
+    .nav-tab{flex:1;padding:10px 4px;text-align:center;color:var(--or-light);font-size:0.72rem;font-weight:500;cursor:pointer;border:none;background:none;opacity:0.6;transition:all 0.2s;border-bottom:2px solid transparent}
+    .nav-tab.active{opacity:1;border-bottom-color:var(--or);color:var(--or)}
+    .nav-icon{font-size:1rem;display:block;margin-bottom:2px}
+    .page{padding:20px 16px 80px}
+    .hero{background:linear-gradient(135deg,var(--brun) 0%,var(--brun-mid) 100%);border-radius:var(--radius);padding:28px 24px;margin-bottom:20px;text-align:center;box-shadow:var(--shadow)}
+    .hero h2{color:var(--or);font-size:1.3rem;margin-bottom:6px}
+    .hero p{color:var(--or-light);font-size:0.85rem;opacity:0.8}
+    .slabel{font-size:0.7rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--gris);margin-bottom:8px;margin-top:4px;display:block}
+    .etab-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px}
+    .etab-card{background:var(--blanc);border:2px solid var(--creme-dark);border-radius:var(--radius);padding:16px 8px;text-align:center;cursor:pointer;transition:all 0.2s;box-shadow:var(--shadow-sm)}
+    .etab-card:hover,.etab-card.sel{border-color:var(--or);background:var(--creme);transform:translateY(-2px);box-shadow:0 6px 20px rgba(201,168,76,0.2)}
+    .etab-icon{font-size:1.4rem;margin-bottom:6px}
+    .etab-name{font-weight:600;font-size:0.95rem;color:var(--brun)}
+    .etab-count{font-size:0.72rem;color:var(--gris);margin-top:3px}
+    .field-box{background:var(--blanc);border-radius:var(--radius);padding:16px;margin-bottom:16px;border:1px solid var(--creme-dark)}
+    .inp{width:100%;border:1px solid var(--creme-dark);border-radius:8px;padding:10px 14px;font-size:0.9rem;background:var(--creme);color:var(--brun);outline:none;transition:border-color 0.2s}
+    .inp:focus{border-color:var(--or);background:var(--blanc)}
+    .sel-inp{width:100%;border:1px solid var(--creme-dark);border-radius:8px;padding:10px 14px;font-size:0.9rem;background:var(--creme);color:var(--brun);outline:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236B6560' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
+    .btn-primary{width:100%;background:var(--or);color:var(--brun);border:none;border-radius:var(--radius);padding:14px;font-size:0.95rem;font-weight:700;cursor:pointer;transition:all 0.2s;box-shadow:0 4px 14px rgba(201,168,76,0.3)}
+    .btn-primary:hover{background:#B8973E;transform:translateY(-1px)}
+    .btn-primary:disabled{opacity:0.5;cursor:not-allowed;transform:none}
+    .session-banner{background:var(--brun);border-radius:var(--radius);padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px}
+    .badge{background:var(--or);color:var(--brun);font-size:0.7rem;font-weight:700;padding:3px 10px;border-radius:20px}
+    .banner-txt{color:var(--or-light);font-size:0.82rem}
+    .mode-toggle{display:flex;background:var(--creme-dark);border-radius:10px;padding:3px;margin-bottom:16px;gap:3px}
+    .mode-btn{flex:1;padding:9px 10px;border:none;border-radius:8px;font-size:0.78rem;font-weight:500;cursor:pointer;color:var(--gris);background:transparent;transition:all 0.2s;text-align:center}
+    .mode-btn.active{background:var(--blanc);color:var(--brun);font-weight:600;box-shadow:var(--shadow-sm)}
+    .act-row{background:var(--blanc);border-radius:var(--radius);padding:14px 16px;margin-bottom:12px;border:1px solid var(--creme-dark)}
+    .r-card{border-radius:var(--radius);overflow:hidden;transition:all 0.2s;margin-bottom:8px}
+    .r-card.sel-card{border:2px solid var(--or);background:var(--blanc);box-shadow:0 2px 12px rgba(201,168,76,0.15)}
+    .r-card.unsel-card{border:1px solid var(--creme-dark);background:var(--creme)}
+    .r-card.present-card{border:2px solid var(--vert-light);background:var(--blanc)}
+    .r-card.absent-card{border:1px solid var(--creme-dark);background:var(--creme);opacity:0.5}
+    .r-row{display:flex;align-items:center;padding:11px 14px;cursor:pointer;gap:10px}
+    .r-check{width:22px;height:22px;border-radius:50%;border:2px solid var(--creme-dark);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.7rem;transition:all 0.2s}
+    .r-check.chk{background:var(--or);border-color:var(--or);color:var(--brun)}
+    .r-name{font-size:0.88rem;font-weight:500;color:var(--brun);flex:1}
+    .r-avatar{width:38px;height:38px;border-radius:50%;background:var(--creme-dark);display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:700;color:var(--brun-light);flex-shrink:0}
+    .r-avatar.pres{background:rgba(82,183,136,0.15);color:var(--vert)}
+    .status-badge{font-size:0.7rem;font-weight:600;padding:3px 10px;border-radius:20px}
+    .status-pres{background:rgba(82,183,136,0.15);color:var(--vert)}
+    .status-abs{background:var(--creme-dark);color:var(--gris)}
+    .consent-zone{padding:10px 14px 12px;border-top:1px solid var(--creme-dark);background:rgba(201,168,76,0.04)}
+    .consent-zone.pres-zone{border-top:1px solid rgba(82,183,136,0.2);background:rgba(82,183,136,0.03)}
+    .toggle-line{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(0,0,0,0.04)}
+    .toggle-line:last-child{border-bottom:none}
+    .toggle-lbl{font-size:0.82rem;color:var(--brun-light)}
+    .toggle-sw{position:relative;width:44px;height:24px;display:inline-block;flex-shrink:0}
+    .toggle-sw input{opacity:0;width:0;height:0}
+    .toggle-sl{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:var(--creme-dark);border-radius:24px;transition:0.3s}
+    .toggle-sl:before{position:absolute;content:"";height:18px;width:18px;left:3px;bottom:3px;background:white;border-radius:50%;transition:0.3s;box-shadow:0 1px 4px rgba(0,0,0,0.15)}
+    input:checked+.toggle-sl{background:var(--or)}
+    input:checked+.toggle-sl:before{transform:translateX(20px)}
+    .t-oui{color:var(--vert);font-size:0.7rem;font-weight:600;margin-left:6px}
+    .t-non{color:var(--gris);font-size:0.7rem;font-weight:600;margin-left:6px}
+    .ext-inp{width:100%;border:1px solid var(--creme-dark);border-radius:8px;padding:8px 12px;font-size:0.82rem;background:var(--creme);color:var(--brun);outline:none;margin-top:6px}
+    .info-box{background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.3);border-radius:10px;padding:10px 14px;font-size:0.78rem;color:var(--brun-light);margin-bottom:14px;display:flex;gap:8px;align-items:flex-start}
+    .search-wrap{position:relative;margin-bottom:14px}
+    .search-wrap input{width:100%;background:var(--blanc);border:1px solid var(--creme-dark);border-radius:var(--radius);padding:11px 14px 11px 38px;font-size:0.88rem;color:var(--brun);outline:none}
+    .search-wrap input:focus{border-color:var(--or)}
+    .search-ico{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--gris);font-size:0.9rem}
+    .chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+    .chip{padding:5px 12px;border-radius:20px;font-size:0.72rem;font-weight:600;cursor:pointer;border:1px solid var(--creme-dark);background:var(--blanc);color:var(--gris);transition:all 0.15s}
+    .chip.active{background:var(--brun);color:var(--or);border-color:var(--brun)}
+    .count-pill{background:var(--or);color:var(--brun);font-size:0.68rem;font-weight:700;padding:2px 8px;border-radius:20px;margin-left:6px}
+    .res-card{background:var(--blanc);border-radius:var(--radius);border:1px solid var(--creme-dark);padding:14px 16px;margin-bottom:8px;display:flex;align-items:center;gap:12px;box-shadow:var(--shadow-sm)}
+    .res-av{width:40px;height:40px;border-radius:50%;background:var(--or-light);display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:700;color:var(--brun);flex-shrink:0}
+    .res-name{font-weight:600;font-size:0.9rem;color:var(--brun)}
+    .res-detail{font-size:0.72rem;color:var(--gris);margin-top:2px}
+    .res-etab{font-size:0.68rem;font-weight:700;padding:3px 8px;border-radius:8px;background:var(--creme-dark);color:var(--brun-light)}
+    .btn-del{background:none;border:none;cursor:pointer;color:var(--rouge);font-size:1rem;padding:6px;opacity:0.5;transition:opacity 0.2s}
+    .btn-del:hover{opacity:1}
+    .add-form{background:var(--blanc);border-radius:var(--radius);border:1px solid var(--creme-dark);padding:18px 16px;margin-bottom:16px;box-shadow:var(--shadow-sm)}
+    .add-form h3{font-size:1rem;font-weight:700;color:var(--brun);margin-bottom:14px}
+    .form-row{margin-bottom:12px}
+    .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .btn-add{background:var(--vert);color:white;border:none;border-radius:var(--radius);padding:11px 20px;font-size:0.88rem;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all 0.2s}
+    .btn-add:hover{background:#1e5e3d}
+    .btn-add:disabled{opacity:0.5;cursor:not-allowed}
+    .hist-item{background:var(--blanc);border-radius:var(--radius);border:1px solid var(--creme-dark);padding:12px 14px;margin-bottom:8px}
+    .hist-hdr{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+    .hist-name{font-weight:600;font-size:0.88rem;color:var(--brun);flex:1}
+    .hist-date{font-size:0.7rem;color:var(--gris)}
+    .hist-act{font-size:0.78rem;color:var(--brun-light);margin-bottom:6px}
+    .badges-row{display:flex;gap:5px;flex-wrap:wrap}
+    .b-oui{background:rgba(45,106,79,0.12);color:var(--vert);font-size:0.65rem;font-weight:700;padding:2px 8px;border-radius:10px}
+    .b-non{background:rgba(0,0,0,0.05);color:var(--gris);font-size:0.65rem;font-weight:700;padding:2px 8px;border-radius:10px}
+    .b-etab{background:var(--creme-dark);color:var(--brun-light);font-size:0.65rem;font-weight:700;padding:2px 8px;border-radius:10px}
+    .btn-export{background:var(--brun);color:var(--or);border:none;border-radius:var(--radius);padding:11px 20px;font-size:0.85rem;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all 0.2s}
+    .btn-export:hover{background:var(--brun-mid)}
+    .spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(201,168,76,0.3);border-top-color:var(--or);border-radius:50%;animation:spin 0.7s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--brun);color:var(--or-light);padding:10px 20px;border-radius:24px;font-size:0.82rem;font-weight:500;box-shadow:0 4px 20px rgba(0,0,0,0.25);z-index:999;animation:toastIn 0.3s ease}
+    @keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(10px)}}
+    .empty{text-align:center;padding:40px 20px;color:var(--gris)}
+    .empty .ico{font-size:2.5rem;margin-bottom:10px}
+    .empty p{font-size:0.85rem}
+    .filter-box{background:var(--blanc);border:1px solid var(--creme-dark);border-radius:var(--radius);padding:14px 16px;margin-bottom:14px}
+    .filter-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+    .filter-hdr span{font-size:0.8rem;font-weight:700;color:var(--brun)}
+    .btn-reset{background:none;border:none;color:var(--rouge);font-size:0.72rem;font-weight:600;cursor:pointer}
+    .f2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+    .login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--brun);padding:20px}
+    .login-box{background:var(--creme);border-radius:16px;padding:32px 28px;width:100%;max-width:360px;box-shadow:0 8px 40px rgba(0,0,0,0.4)}
+    .login-logo{text-align:center;margin-bottom:24px}
+    .login-title{font-weight:700;color:var(--brun);font-size:1.1rem;margin-top:10px}
+    .login-sub{font-size:0.75rem;color:var(--gris);margin-top:4px}
+    .pwd-wrap{position:relative;margin-bottom:16px}
+    .pwd-inp{width:100%;border:2px solid var(--creme-dark);border-radius:10px;padding:11px 42px 11px 14px;font-size:1rem;background:var(--blanc);color:var(--brun);outline:none;transition:border-color 0.2s}
+    .pwd-inp.err{border-color:var(--rouge)}
+    .pwd-toggle{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1rem;color:var(--gris)}
+    .err-box{background:rgba(192,57,43,0.1);border:1px solid var(--rouge);border-radius:8px;padding:8px 12px;font-size:0.78rem;color:var(--rouge);margin-bottom:12px;text-align:center}
+    .login-hint{text-align:center;margin-top:16px;font-size:0.68rem;color:var(--gris);opacity:0.7}
   </style>
 </head>
 <body>
-  <div id="root"></div>
-  <script type="text/babel">
-    const { useState, useEffect, useCallback } = React;
+<div id="root"></div>
+<script>
+// ── CONFIG ────────────────────────────────────────────────────────
+const SUPABASE_URL = 'https://mfczutghueypranjeixx.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1mY3p1dGdodWV5cHJhbmplaXh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4NDA5NTAsImV4cCI6MjA5MjQxNjk1MH0.iDLsbdRysx6ORhveIl0HUsz-FLRMJ9KWW5WpqN8V-zc';
+const MOT_DE_PASSE = 'lpb26';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const ETABS = ['FH','SAVS','FAM','CAJ','HI'];
+const ETAB_LABELS = {FH:"Foyer d'Héberg.",SAVS:'SAVS',FAM:'FAM',CAJ:'CAJ',HI:'Habitat Inclusif'};
+const ETAB_ICONS = {FH:'🏠',SAVS:'🤝',FAM:'🏥',CAJ:'🎨',HI:'🌿'};
 
-    const ETABLISSEMENTS = ["FH", "SAVS", "FAM", "CAJ", "HI"];
-    const MESURES = ["Aucune", "Tutelle", "Curatelle", "Sauvegarde de justice", "Habilitation familiale"];
-    const VIEWS = { HOME: "home", RESIDENTS: "residents", RECUEIL: "recueil", HISTORIQUE: "historique" };
+// ── REACT HELPERS ─────────────────────────────────────────────────
+const {createElement:h, useState, useEffect, useCallback, useRef, Fragment} = React;
 
-    const loadData = (key, fallback) => {
-      try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; }
-      catch { return fallback; }
-    };
-    const saveData = (key, data) => {
-      try { localStorage.setItem(key, JSON.stringify(data)); } catch {}
-    };
-    const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-    const fmtDate = (d) => new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
-    const fmtDateTime = (d) => new Date(d).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+// ── LOGO SVG ──────────────────────────────────────────────────────
+function Logo() { return h('img',{src:'data:image/png;base64,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',style:{height:'40px',width:'auto',flexShrink:0},alt:'Logo LPB'}); }
 
-    const exportCSV = (consentements, residents) => {
-      const resMap = {};
-      residents.forEach(r => { resMap[r.id] = r; });
-      const header = "Date;Heure;Etablissement;Activite;Nom;Prenom;Mesure de protection;Photo autorisee;Diffusion interne;Diffusion externe;Recueilli par\n";
-      const rows = consentements.map(c => {
-        const r = resMap[c.residentId] || {};
-        const dt = new Date(c.timestamp);
-        return [
-          dt.toLocaleDateString("fr-FR"),
-          dt.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }),
-          c.etablissement, c.activite, r.nom || "Inconnu", r.prenom || "",
-          r.mesure || "", c.photo ? "Oui" : "Non", c.diffInterne ? "Oui" : "Non",
-          c.diffExterne ? "Oui" : "Non", c.recueilliPar || ""
-        ].join(";");
-      }).join("\n");
-      const blob = new Blob(["\uFEFF" + header + rows], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a"); a.href = url;
-      a.download = "consentements_droit_image_" + new Date().toISOString().slice(0,10) + ".csv";
-      a.click(); URL.revokeObjectURL(url);
-    };
+// ── TOGGLE ────────────────────────────────────────────────────────
+function Toggle({checked, onChange}) {
+  return h('label',{className:'toggle-sw', onClick:e=>e.stopPropagation()},
+    h('input',{type:'checkbox',checked,onChange}),
+    h('span',{className:'toggle-sl'})
+  );
+}
 
-    const Toggle = ({ value, onChange }) => (
-      <div style={{ display: "flex", gap: 2 }}>
-        <button onClick={() => onChange(true)} style={{
-          padding: "7px 14px", border: "none", borderRadius: "6px 0 0 6px", cursor: "pointer",
-          fontFamily: "inherit", fontSize: 13, fontWeight: 600,
-          background: value ? "#059669" : "#e5e7eb", color: value ? "#fff" : "#6b7280",
-          transition: "all 0.15s"
-        }}>Oui</button>
-        <button onClick={() => onChange(false)} style={{
-          padding: "7px 14px", border: "none", borderRadius: "0 6px 6px 0", cursor: "pointer",
-          fontFamily: "inherit", fontSize: 13, fontWeight: 600,
-          background: !value ? "#dc2626" : "#e5e7eb", color: !value ? "#fff" : "#6b7280",
-          transition: "all 0.15s"
-        }}>Non</button>
-      </div>
+// ── ÉCRAN CONNEXION ───────────────────────────────────────────────
+function Login({onSuccess}) {
+  const [mdp,setMdp] = useState('');
+  const [err,setErr] = useState(false);
+  const [vis,setVis] = useState(false);
+  function tenter() {
+    if(mdp===MOT_DE_PASSE){sessionStorage.setItem('lpb_auth','1');onSuccess();}
+    else{setErr(true);setMdp('');setTimeout(()=>setErr(false),2000);}
+  }
+  return h('div',{className:'login-wrap'},
+    h('div',{className:'login-box'},
+      h('div',{className:'login-logo'},
+        h(Logo),
+        h('div',{className:'login-title'},"Droit à l'image"),
+        h('div',{className:'login-sub'},'Le Pré de la Bataille')
+      ),
+      h('div',{style:{marginBottom:8,fontSize:'0.72rem',fontWeight:600,color:'var(--gris)',letterSpacing:'0.06em',textTransform:'uppercase'}},'Mot de passe'),
+      h('div',{className:'pwd-wrap'},
+        h('input',{className:'pwd-inp'+(err?' err':''),type:vis?'text':'password',placeholder:'••••••••',value:mdp,
+          onChange:e=>setMdp(e.target.value),onKeyDown:e=>e.key==='Enter'&&tenter()}),
+        h('button',{className:'pwd-toggle',onClick:()=>setVis(v=>!v)},vis?'🙈':'👁️')
+      ),
+      err&&h('div',{className:'err-box'},'Mot de passe incorrect'),
+      h('button',{className:'btn-primary',onClick:tenter},'Accéder →'),
+      h('div',{className:'login-hint'},'🔒 Accès réservé aux professionnels')
+    )
+  );
+}
+
+// ── PAGE ACCUEIL ──────────────────────────────────────────────────
+function PageAccueil({residents,onStart,session}) {
+  const [etab,setEtab] = useState(session?.etab||'');
+  const [pro,setPro] = useState(session?.pro||'');
+  const counts = ETABS.reduce((a,e)=>{a[e]=residents.filter(r=>r.etab===e).length;return a},{});
+  return h('div',{className:'page'},
+    h('div',{className:'hero'},
+      h('h2',null,"Recueil du droit à l'image"),
+      h('p',null,'Sélectionnez votre établissement pour commencer')
+    ),
+    h('span',{className:'slabel'},'Votre établissement'),
+    h('div',{className:'etab-grid'},
+      ETABS.map(e=>h('div',{key:e,className:'etab-card'+(etab===e?' sel':''),onClick:()=>setEtab(e)},
+        h('div',{className:'etab-icon'},ETAB_ICONS[e]),
+        h('div',{className:'etab-name'},e),
+        h('div',{className:'etab-count'},counts[e]+' pers.')
+      ))
+    ),
+    h('div',{className:'field-box'},
+      h('label',{className:'slabel'},'Votre prénom (professionnel)'),
+      h('input',{className:'inp',type:'text',placeholder:'Ex : Marie',value:pro,onChange:e=>setPro(e.target.value)})
+    ),
+    h('button',{className:'btn-primary',disabled:!etab||!pro.trim(),onClick:()=>onStart(etab,pro.trim())},
+      'Commencer → '+(etab?etab+' ('+residents.filter(r=>r.etab===etab).length+' personnes)':'')
+    ),
+    h('div',{style:{textAlign:'center',marginTop:16,fontSize:'0.7rem',color:'var(--gris)',opacity:0.6}},'🔒 Données sauvegardées de façon sécurisée')
+  );
+}
+
+// ── PAGE RECUEIL ──────────────────────────────────────────────────
+function PageRecueil({session,residents,onSaved,showToast}) {
+  const [mode,setMode] = useState('selection');
+  const [selIds,setSelIds] = useState([]);
+  const [appel,setAppel] = useState({});
+  const [activite,setActivite] = useState('');
+  const [date,setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [consents,setConsents] = useState({});
+  const [saving,setSaving] = useState(false);
+
+  useEffect(()=>{
+    const a={};residents.forEach(r=>a[r.id]='present');setAppel(a);
+  },[residents]);
+
+  function toggleSel(id) {
+    setSelIds(prev=>{
+      const next=prev.includes(id)?prev.filter(x=>x!==id):[...prev,id];
+      if(!prev.includes(id)) setConsents(c=>c[id]?c:{...c,[id]:{photo:false,interne:false,externe:false,ext_detail:'',obs:''}});
+      return next;
+    });
+  }
+  function toggleAppel(id){setAppel(p=>({...p,[id]:p[id]==='present'?'absent':'present'}));}
+  function updateC(id,field,val){setConsents(p=>({...p,[id]:{...p[id],[field]:val}}));}
+
+  const presentsAppel = residents.filter(r=>appel[r.id]==='present');
+  const presentsList = mode==='appel'?presentsAppel:residents.filter(r=>selIds.includes(r.id));
+
+  async function saveAll() {
+    if(!presentsList.length){showToast('⚠️ Aucune personne sélectionnée');return;}
+    if(!activite.trim()){showToast("⚠️ Renseignez l'activité");return;}
+    setSaving(true);
+    const rows=presentsList.map(r=>{
+      const c=consents[r.id]||{photo:false,interne:false,externe:false,ext_detail:'',obs:''};
+      return{resident_id:r.id,date,activite,photo:c.photo?'oui':'non',interne:c.interne?'oui':'non',externe:c.externe?'oui':'non',ext_detail:c.ext_detail||null,obs:c.obs||null,pro:session?.pro,etab:session?.etab};
+    });
+    const{error}=await sb.from('recueils').insert(rows);
+    setSaving(false);
+    if(error){showToast('❌ '+error.message);return;}
+    onSaved();setSelIds([]);setConsents([]);setActivite('');
+  }
+
+  function ConsentZone({r,zoneClass}) {
+    const c=consents[r.id]||{photo:false,interne:false,externe:false,ext_detail:'',obs:''};
+    return h('div',{className:'consent-zone '+zoneClass},
+      [
+        {key:'photo',label:'📷 Photo / vidéo'},
+        {key:'interne',label:'🏠 Diffusion interne'},
+        {key:'externe',label:'🌐 Diffusion externe'},
+      ].map(({key,label})=>
+        h('div',{key,className:'toggle-line'},
+          h('span',{className:'toggle-lbl'},label),
+          h('div',{style:{display:'flex',alignItems:'center'}},
+            h(Toggle,{checked:c[key],onChange:e=>updateC(r.id,key,e.target.checked)}),
+            h('span',{className:c[key]?'t-oui':'t-non'},c[key]?'Oui':'Non')
+          )
+        )
+      ),
+      c.externe&&h('input',{className:'ext-inp',type:'text',placeholder:'Préciser (ex: Facebook…)',value:c.ext_detail||'',onChange:e=>updateC(r.id,'ext_detail',e.target.value),onClick:e=>e.stopPropagation()})
     );
+  }
 
-    const Badge = ({ children, color = "#6366f1" }) => (
-      <span style={{
-        display: "inline-block", padding: "2px 10px", borderRadius: 20, fontSize: 11,
-        fontWeight: 700, letterSpacing: 0.5, background: color + "18", color,
-        textTransform: "uppercase"
-      }}>{children}</span>
-    );
+  if(!session) return h('div',{className:'page'},h('div',{className:'empty'},h('div',{className:'ico'},'🏠'),h('p',null,"Retournez à l'accueil")));
 
-    const S = {
-      card: { background: "#fff", borderRadius: 12, padding: 20, boxShadow: "0 1px 4px rgba(0,0,0,0.06)", border: "1px solid #e8ecf3" },
-      btnP: { padding: "10px 20px", border: "none", borderRadius: 8, cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 600, background: "#2d5a87", color: "#fff", transition: "all 0.15s" },
-      btnS: { padding: "10px 20px", border: "none", borderRadius: 8, cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 600, background: "#e5e7eb", color: "#374151", transition: "all 0.15s" },
-      btnOk: { padding: "10px 20px", border: "none", borderRadius: 8, cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 600, background: "#059669", color: "#fff", transition: "all 0.15s" },
-      input: { width: "100%", padding: "10px 14px", border: "1px solid #d1d5db", borderRadius: 8, fontFamily: "inherit", fontSize: 14, outline: "none", boxSizing: "border-box" },
-      label: { display: "block", fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.5 },
-    };
+  return h('div',{className:'page'},
+    h('div',{className:'session-banner'},
+      h('span',{className:'badge'},session.etab),
+      h('span',{className:'banner-txt'},session.pro+' · '+new Date(date).toLocaleDateString('fr-FR',{day:'numeric',month:'long'}))
+    ),
+    h('div',{className:'act-row'},h('label',{className:'slabel'},"Activité du jour"),h('input',{className:'inp',type:'text',placeholder:'Ex : Sortie au parc…',value:activite,onChange:e=>setActivite(e.target.value)})),
+    h('div',{className:'act-row'},h('label',{className:'slabel'},'Date'),h('input',{className:'inp',type:'date',value:date,onChange:e=>setDate(e.target.value)})),
+    h('div',{className:'mode-toggle'},
+      h('button',{className:'mode-btn'+(mode==='selection'?' active':''),onClick:()=>setMode('selection')},'☑️ Sélection manuelle'),
+      h('button',{className:'mode-btn'+(mode==='appel'?' active':''),onClick:()=>setMode('appel')},'📋 Appel (cocher absents)')
+    ),
+    residents.length===0&&h('div',{className:'empty'},h('div',{className:'ico'},'👥'),h('p',null,'Aucune personne enregistrée pour '+session.etab+'. Ajoutez-les dans l\'onglet Personnes.')),
 
-    const ResidentForm = ({ initial, onSave, onCancel, defaultEtab }) => {
-      const [nom, setNom] = useState(initial?.nom || "");
-      const [prenom, setPrenom] = useState(initial?.prenom || "");
-      const [mesure, setMesure] = useState(initial?.mesure || "Aucune");
-      const [etab, setEtab] = useState(initial?.etablissement || defaultEtab || ETABLISSEMENTS[0]);
-      return (
-        <div style={{ ...S.card, marginBottom: 16 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
-            <div><label style={S.label}>Nom</label><input style={S.input} value={nom} onChange={e => setNom(e.target.value)} placeholder="NOM" /></div>
-            <div><label style={S.label}>Prénom</label><input style={S.input} value={prenom} onChange={e => setPrenom(e.target.value)} placeholder="Prénom" /></div>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
-            <div><label style={S.label}>Établissement</label>
-              <select style={{ ...S.input, background: "#fff" }} value={etab} onChange={e => setEtab(e.target.value)}>
-                {ETABLISSEMENTS.map(e => <option key={e} value={e}>{e}</option>)}
-              </select></div>
-            <div><label style={S.label}>Mesure de protection</label>
-              <select style={{ ...S.input, background: "#fff" }} value={mesure} onChange={e => setMesure(e.target.value)}>
-                {MESURES.map(m => <option key={m} value={m}>{m}</option>)}
-              </select></div>
-          </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button style={{ ...S.btnP, opacity: (!nom.trim() || !prenom.trim()) ? 0.5 : 1 }}
-              disabled={!nom.trim() || !prenom.trim()}
-              onClick={() => onSave({ nom: nom.trim().toUpperCase(), prenom: prenom.trim(), mesure, etablissement: etab })}>
-              Enregistrer</button>
-            <button style={S.btnS} onClick={onCancel}>Annuler</button>
-          </div>
-        </div>
-      );
-    };
-
-    function App() {
-      const [view, setView] = useState(VIEWS.HOME);
-      const [residents, setResidents] = useState(() => loadData("pdb_residents", []));
-      const [consentements, setConsentements] = useState(() => loadData("pdb_consentements", []));
-      const [selectedEtab, setSelectedEtab] = useState(null);
-      const [editResident, setEditResident] = useState(null);
-      const [showAddForm, setShowAddForm] = useState(false);
-      const [recueilEtab, setRecueilEtab] = useState("");
-      const [recueilActivite, setRecueilActivite] = useState("");
-      const [recueilDate, setRecueilDate] = useState(new Date().toISOString().slice(0, 10));
-      const [recueilPar, setRecueilPar] = useState("");
-      const [recueilConsents, setRecueilConsents] = useState({});
-      const [recueilStep, setRecueilStep] = useState(0);
-      const [filtreEtab, setFiltreEtab] = useState("");
-      const [filtreDate, setFiltreDate] = useState("");
-      const [filtreResident, setFiltreResident] = useState("");
-
-      useEffect(() => { saveData("pdb_residents", residents); }, [residents]);
-      useEffect(() => { saveData("pdb_consentements", consentements); }, [consentements]);
-
-      const residentsForEtab = (etab) => residents.filter(r => r.etablissement === etab).sort((a, b) => a.nom.localeCompare(b.nom));
-
-      const addResident = (data) => { setResidents(prev => [...prev, { id: uid(), ...data }]); setShowAddForm(false); };
-      const updateResident = (id, data) => { setResidents(prev => prev.map(r => r.id === id ? { ...r, ...data } : r)); setEditResident(null); };
-      const deleteResident = (id) => { if (confirm("Supprimer cette personne accompagnée ?")) setResidents(prev => prev.filter(r => r.id !== id)); };
-
-      const initRecueil = () => {
-        const initial = {};
-        residentsForEtab(recueilEtab).forEach(r => { initial[r.id] = { photo: false, diffInterne: false, diffExterne: false, included: true }; });
-        setRecueilConsents(initial);
-        setRecueilStep(1);
-      };
-
-      const saveRecueil = () => {
-        const timestamp = new Date().toISOString();
-        const newC = Object.entries(recueilConsents).filter(([_, v]) => v.included).map(([resId, v]) => ({
-          id: uid(), residentId: resId, etablissement: recueilEtab, activite: recueilActivite,
-          date: recueilDate, timestamp, photo: v.photo, diffInterne: v.diffInterne,
-          diffExterne: v.diffExterne, recueilliPar: recueilPar
-        }));
-        setConsentements(prev => [...prev, ...newC]);
-        setRecueilStep(2);
-      };
-
-      const resetRecueil = () => {
-        setRecueilEtab(""); setRecueilActivite(""); setRecueilDate(new Date().toISOString().slice(0, 10));
-        setRecueilPar(""); setRecueilConsents({}); setRecueilStep(0);
-      };
-
-      const filteredHisto = consentements.filter(c => {
-        if (filtreEtab && c.etablissement !== filtreEtab) return false;
-        if (filtreDate && c.date !== filtreDate) return false;
-        if (filtreResident) {
-          const r = residents.find(x => x.id === c.residentId);
-          if (!r || !(r.nom + " " + r.prenom).toLowerCase().includes(filtreResident.toLowerCase())) return false;
-        }
-        return true;
-      }).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-
-      const navBtn = (active) => ({
-        padding: "8px 16px", border: "none", borderRadius: 8, cursor: "pointer",
-        fontFamily: "inherit", fontSize: 13, fontWeight: 600,
-        background: active ? "rgba(255,255,255,0.2)" : "transparent", color: "#fff",
-        transition: "all 0.15s", whiteSpace: "nowrap"
-      });
-
-      const etabBtn = (active) => ({
-        padding: "6px 14px", border: "none", borderRadius: 20, cursor: "pointer",
-        fontFamily: "inherit", fontSize: 12, fontWeight: 600,
-        background: active ? "#2d5a87" : "#e5e7eb", color: active ? "#fff" : "#374151"
-      });
-
-      // ─── HOME ───
-      const renderHome = () => (
-        <div style={{ padding: 24 }}>
-          <div style={{ textAlign: "center", marginBottom: 32 }}>
-            <div style={{ fontSize: 40, marginBottom: 8 }}>📸</div>
-            <h2 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px", color: "#1e3a5f" }}>Recueil du droit à l'image</h2>
-            <p style={{ color: "#64748b", fontSize: 14, margin: 0 }}>Association Le Pré de la Bataille</p>
-          </div>
-          <div style={{ display: "grid", gap: 12, marginBottom: 24 }}>
-            {[
-              { icon: "✏️", title: "Nouveau recueil", desc: "Recueillir les consentements pour une activité", action: () => { resetRecueil(); setView(VIEWS.RECUEIL); }, accent: true },
-              { icon: "👥", title: "Personnes accompagnées", desc: residents.length + " personne" + (residents.length > 1 ? "s" : "") + " enregistrée" + (residents.length > 1 ? "s" : ""), action: () => setView(VIEWS.RESIDENTS) },
-              { icon: "📋", title: "Historique & Export", desc: consentements.length + " consentement" + (consentements.length > 1 ? "s" : "") + " enregistré" + (consentements.length > 1 ? "s" : ""), action: () => setView(VIEWS.HISTORIQUE) },
-            ].map((item, i) => (
-              <button key={i} onClick={item.action} style={{ ...S.card, cursor: "pointer", display: "flex", alignItems: "center", gap: 16, textAlign: "left", border: item.accent ? "2px solid #2d5a87" : "1px solid #e8ecf3" }}>
-                <span style={{ fontSize: 28 }}>{item.icon}</span>
-                <div><div style={{ fontSize: 16, fontWeight: 700, color: "#1e3a5f" }}>{item.title}</div>
-                <div style={{ fontSize: 13, color: "#64748b" }}>{item.desc}</div></div>
-              </button>
-            ))}
-          </div>
-          <div style={{ ...S.card, background: "#f0f9ff", borderColor: "#bae6fd" }}>
-            <div style={{ fontSize: 13, color: "#0369a1", lineHeight: 1.6 }}>
-              <strong>Rappel HAS 2.2.5</strong> — Les professionnels recueillent le choix de la personne accompagnée sur son droit à l'image et respectent ce choix. Consentement libre, spécifique, éclairé et univoque (RGPD art. 7).
-            </div>
-          </div>
-        </div>
-      );
-
-      // ─── RESIDENTS ───
-      const renderResidents = () => (
-        <div style={{ padding: 24 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-            <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: "#1e3a5f" }}>Personnes accompagnées</h2>
-            <button style={S.btnP} onClick={() => { setShowAddForm(true); setEditResident(null); }}>+ Ajouter</button>
-          </div>
-          {showAddForm && <ResidentForm defaultEtab={selectedEtab} onSave={addResident} onCancel={() => setShowAddForm(false)} />}
-          <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-            <button style={etabBtn(!selectedEtab)} onClick={() => setSelectedEtab(null)}>Tous ({residents.length})</button>
-            {ETABLISSEMENTS.map(e => <button key={e} style={etabBtn(selectedEtab === e)} onClick={() => setSelectedEtab(e)}>{e} ({residentsForEtab(e).length})</button>)}
-          </div>
-          {(selectedEtab ? residentsForEtab(selectedEtab) : [...residents].sort((a, b) => a.nom.localeCompare(b.nom))).map(r => (
-            editResident === r.id ? (
-              <ResidentForm key={r.id} initial={r} onSave={(data) => updateResident(r.id, data)} onCancel={() => setEditResident(null)} />
-            ) : (
-              <div key={r.id} style={{ ...S.card, marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 20px" }}>
-                <div>
-                  <span style={{ fontWeight: 700, fontSize: 15 }}>{r.nom}</span>
-                  <span style={{ fontWeight: 400, fontSize: 15, marginLeft: 6 }}>{r.prenom}</span>
-                  <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
-                    <Badge color="#2d5a87">{r.etablissement}</Badge>
-                    {r.mesure && r.mesure !== "Aucune" && <Badge color="#d97706">{r.mesure}</Badge>}
-                  </div>
-                </div>
-                <div style={{ display: "flex", gap: 6 }}>
-                  <button style={{ ...S.btnS, padding: "6px 12px", fontSize: 12 }} onClick={() => { setEditResident(r.id); setShowAddForm(false); }}>Modifier</button>
-                  <button style={{ ...S.btnP, background: "#dc2626", padding: "6px 12px", fontSize: 12 }} onClick={() => deleteResident(r.id)}>×</button>
-                </div>
-              </div>
-            )
-          ))}
-          {residents.length === 0 && <div style={{ textAlign: "center", padding: 40, color: "#94a3b8" }}>
-            <div style={{ fontSize: 32, marginBottom: 8 }}>👥</div>
-            <p>Aucune personne enregistrée.</p><p style={{ fontSize: 13 }}>Commencez par ajouter les personnes de chaque établissement.</p>
-          </div>}
-        </div>
-      );
-
-      // ─── RECUEIL ───
-      const renderRecueil = () => {
-        if (recueilStep === 2) {
-          const count = Object.values(recueilConsents).filter(v => v.included).length;
-          return (
-            <div style={{ padding: 24, textAlign: "center" }}>
-              <div style={{ ...S.card, padding: 40 }}>
-                <div style={{ fontSize: 48, marginBottom: 16 }}>✅</div>
-                <h2 style={{ fontSize: 20, fontWeight: 700, color: "#059669", margin: "0 0 8px" }}>Consentements enregistrés</h2>
-                <p style={{ color: "#64748b", margin: "0 0 24px" }}>{count} consentement{count > 1 ? "s" : ""} pour « {recueilActivite} »</p>
-                <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
-                  <button style={S.btnP} onClick={resetRecueil}>Nouveau recueil</button>
-                  <button style={S.btnS} onClick={() => { resetRecueil(); setView(VIEWS.HOME); }}>Accueil</button>
-                </div>
-              </div>
-            </div>
-          );
-        }
-        if (recueilStep === 0) {
-          return (
-            <div style={{ padding: 24 }}>
-              <h2 style={{ fontSize: 18, fontWeight: 700, margin: "0 0 20px", color: "#1e3a5f" }}>Nouveau recueil</h2>
-              <div style={S.card}>
-                <div style={{ display: "grid", gap: 16 }}>
-                  <div><label style={S.label}>Établissement</label>
-                    <select style={{ ...S.input, background: "#fff" }} value={recueilEtab} onChange={e => setRecueilEtab(e.target.value)}>
-                      <option value="">— Sélectionner —</option>
-                      {ETABLISSEMENTS.map(e => <option key={e} value={e}>{e} ({residentsForEtab(e).length} pers.)</option>)}
-                    </select></div>
-                  <div><label style={S.label}>Activité</label>
-                    <input style={S.input} value={recueilActivite} onChange={e => setRecueilActivite(e.target.value)} placeholder="Ex : Atelier peinture, Sortie parc..." /></div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                    <div><label style={S.label}>Date</label><input style={S.input} type="date" value={recueilDate} onChange={e => setRecueilDate(e.target.value)} /></div>
-                    <div><label style={S.label}>Recueilli par</label><input style={S.input} value={recueilPar} onChange={e => setRecueilPar(e.target.value)} placeholder="Prénom du pro" /></div>
-                  </div>
-                </div>
-                <button style={{ ...S.btnP, marginTop: 20, width: "100%", opacity: (!recueilEtab || !recueilActivite.trim()) ? 0.5 : 1 }}
-                  disabled={!recueilEtab || !recueilActivite.trim()} onClick={initRecueil}>
-                  Commencer le recueil →</button>
-                {recueilEtab && residentsForEtab(recueilEtab).length === 0 && (
-                  <div style={{ marginTop: 12, padding: 12, background: "#fef3c7", borderRadius: 8, fontSize: 13, color: "#92400e" }}>
-                    ⚠️ Aucune personne enregistrée pour {recueilEtab}.</div>
-                )}
-              </div>
-            </div>
-          );
-        }
-        // Step 1
-        const etabR = residentsForEtab(recueilEtab);
-        const inclCount = Object.values(recueilConsents).filter(v => v.included).length;
-        return (
-          <div style={{ padding: 24 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-              <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: "#1e3a5f" }}>{recueilActivite}</h2>
-              <Badge color="#2d5a87">{recueilEtab}</Badge>
-            </div>
-            <p style={{ color: "#64748b", fontSize: 13, margin: "0 0 16px" }}>
-              {fmtDate(recueilDate)}{recueilPar && " • " + recueilPar} • {inclCount} personne{inclCount > 1 ? "s" : ""}
-            </p>
-            <div style={{ marginBottom: 12, display: "flex", gap: 8 }}>
-              <button style={{ ...S.btnS, fontSize: 12, padding: "6px 12px" }}
-                onClick={() => { const u = {...recueilConsents}; Object.keys(u).forEach(k => { u[k] = {...u[k], photo: true, diffInterne: true}; }); setRecueilConsents(u); }}>
-                ✓ Tout photo+interne</button>
-              <button style={{ ...S.btnS, fontSize: 12, padding: "6px 12px" }}
-                onClick={() => { const u = {...recueilConsents}; Object.keys(u).forEach(k => { u[k] = {...u[k], photo: false, diffInterne: false, diffExterne: false}; }); setRecueilConsents(u); }}>
-                ✗ Tout décocher</button>
-            </div>
-            {etabR.map(r => {
-              const c = recueilConsents[r.id] || { photo: false, diffInterne: false, diffExterne: false, included: true };
-              return (
-                <div key={r.id} style={{ ...S.card, marginBottom: 10, opacity: c.included ? 1 : 0.4, transition: "opacity 0.2s", padding: "16px 20px" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: c.included ? 12 : 0 }}>
-                    <div>
-                      <span style={{ fontWeight: 700, fontSize: 15 }}>{r.nom}</span>
-                      <span style={{ fontWeight: 400, fontSize: 15, marginLeft: 6 }}>{r.prenom}</span>
-                      {r.mesure && r.mesure !== "Aucune" && <span style={{ marginLeft: 8 }}><Badge color="#d97706">{r.mesure}</Badge></span>}
-                    </div>
-                    <label style={{ fontSize: 12, color: "#94a3b8", cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
-                      <input type="checkbox" checked={c.included} onChange={e => setRecueilConsents(prev => ({...prev, [r.id]: {...prev[r.id], included: e.target.checked}}))} /> Présent
-                    </label>
-                  </div>
-                  {c.included && (
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
-                      <div><div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 4, textTransform: "uppercase" }}>Photo</div>
-                        <Toggle value={c.photo} onChange={v => setRecueilConsents(prev => ({...prev, [r.id]: {...prev[r.id], photo: v}}))} /></div>
-                      <div><div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 4, textTransform: "uppercase" }}>Diff. interne</div>
-                        <Toggle value={c.diffInterne} onChange={v => setRecueilConsents(prev => ({...prev, [r.id]: {...prev[r.id], diffInterne: v}}))} /></div>
-                      <div><div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 4, textTransform: "uppercase" }}>Diff. externe</div>
-                        <Toggle value={c.diffExterne} onChange={v => setRecueilConsents(prev => ({...prev, [r.id]: {...prev[r.id], diffExterne: v}}))} /></div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-            <div style={{ position: "sticky", bottom: 0, padding: "16px 0", background: "linear-gradient(transparent, #f0f4ff 20%)" }}>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button style={{ ...S.btnS, flex: 1 }} onClick={() => setRecueilStep(0)}>← Retour</button>
-                <button style={{ ...S.btnOk, flex: 2, opacity: inclCount === 0 ? 0.5 : 1 }} disabled={inclCount === 0} onClick={saveRecueil}>
-                  ✓ Enregistrer {inclCount} consentement{inclCount > 1 ? "s" : ""}</button>
-              </div>
-            </div>
-          </div>
+    // MODE SELECTION
+    mode==='selection'&&residents.length>0&&h('div',null,
+      residents.map(r=>{
+        const sel=selIds.includes(r.id);
+        return h('div',{key:r.id,className:'r-card '+(sel?'sel-card':'unsel-card')},
+          h('div',{className:'r-row',onClick:()=>toggleSel(r.id)},
+            h('div',{className:'r-check'+(sel?' chk':'')},sel?'✓':''),
+            h('span',{className:'r-name'},r.prenom+' '+r.initiale+'.'),
+            sel&&h('span',{style:{marginLeft:'auto',fontSize:'0.7rem',color:'var(--or)',fontWeight:600}},'▼ consentements')
+          ),
+          sel&&h(ConsentZone,{r,zoneClass:''})
         );
-      };
+      })
+    ),
 
-      // ─── HISTORIQUE ───
-      const renderHistorique = () => (
-        <div style={{ padding: 24 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 8 }}>
-            <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: "#1e3a5f" }}>Historique</h2>
-            <button style={{ ...S.btnP, fontSize: 12 }} onClick={() => exportCSV(filteredHisto, residents)} disabled={filteredHisto.length === 0}>
-              📥 Export CSV ({filteredHisto.length})</button>
-          </div>
-          <div style={{ ...S.card, marginBottom: 16 }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-              <div><label style={S.label}>Établissement</label>
-                <select style={{ ...S.input, background: "#fff" }} value={filtreEtab} onChange={e => setFiltreEtab(e.target.value)}>
-                  <option value="">Tous</option>{ETABLISSEMENTS.map(e => <option key={e} value={e}>{e}</option>)}</select></div>
-              <div><label style={S.label}>Date</label><input style={S.input} type="date" value={filtreDate} onChange={e => setFiltreDate(e.target.value)} /></div>
-              <div><label style={S.label}>Personne</label><input style={S.input} value={filtreResident} onChange={e => setFiltreResident(e.target.value)} placeholder="Rechercher..." /></div>
-            </div>
-          </div>
-          {filteredHisto.length === 0 ? (
-            <div style={{ textAlign: "center", padding: 40, color: "#94a3b8" }}>
-              <div style={{ fontSize: 32, marginBottom: 8 }}>📋</div>
-              <p>Aucun consentement{filtreEtab || filtreDate || filtreResident ? " pour ces critères" : ""}.</p></div>
-          ) : filteredHisto.map(c => {
-            const r = residents.find(x => x.id === c.residentId);
-            const pill = (ok, label) => ({ fontSize: 12, padding: "2px 8px", borderRadius: 4, background: ok ? "#dcfce7" : "#fee2e2", color: ok ? "#166534" : "#991b1b" });
-            return (
-              <div key={c.id} style={{ ...S.card, marginBottom: 8, padding: "12px 20px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                  <div><span style={{ fontWeight: 700, fontSize: 14 }}>{r ? r.nom + " " + r.prenom : "Supprimé"}</span>
-                    <span style={{ marginLeft: 8 }}><Badge color="#2d5a87">{c.etablissement}</Badge></span></div>
-                  <span style={{ fontSize: 12, color: "#94a3b8" }}>{fmtDateTime(c.timestamp)}</span>
-                </div>
-                <div style={{ fontSize: 13, color: "#64748b", marginBottom: 6 }}>
-                  Activité : <strong>{c.activite}</strong>{c.recueilliPar && " • Par " + c.recueilliPar}</div>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <span style={pill(c.photo)}>Photo : {c.photo ? "✓" : "✗"}</span>
-                  <span style={pill(c.diffInterne)}>Interne : {c.diffInterne ? "✓" : "✗"}</span>
-                  <span style={pill(c.diffExterne)}>Externe : {c.diffExterne ? "✓" : "✗"}</span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      );
+    // MODE APPEL
+    mode==='appel'&&residents.length>0&&h('div',null,
+      h('div',{className:'info-box'},'ℹ️ ',h('span',null,'Tous présents par défaut. Tapez pour marquer absent.')),
+      residents.map(r=>{
+        const pres=(appel[r.id]||'present')==='present';
+        const ini=(r.prenom?.[0]||'')+(r.initiale?.[0]||'');
+        return h('div',{key:r.id,className:'r-card '+(pres?'present-card':'absent-card')},
+          h('div',{className:'r-row',onClick:()=>toggleAppel(r.id)},
+            h('div',{className:'r-avatar'+(pres?' pres':'')},ini),
+            h('div',{className:'r-name'},r.prenom+' ',h('strong',null,r.initiale+'.')),
+            h('span',{className:'status-badge '+(pres?'status-pres':'status-abs'),style:{marginLeft:'auto'}},pres?'Présent ✓':'Absent')
+          ),
+          pres&&h(ConsentZone,{r,zoneClass:'pres-zone'})
+        );
+      })
+    ),
 
-      return (
-        <div>
-          <div style={{
-            background: "linear-gradient(135deg, #1e3a5f 0%, #2d5a87 50%, #1e3a5f 100%)",
-            color: "#fff", padding: "20px 24px 16px", position: "sticky", top: 0, zIndex: 100,
-            boxShadow: "0 4px 20px rgba(30,58,95,0.25)"
-          }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-              <div style={{ fontSize: 17, fontWeight: 700 }}>📸 Droit à l'image</div>
-              <div style={{ fontSize: 11, opacity: 0.7 }}>Le Pré de la Bataille</div>
-            </div>
-            <div style={{ display: "flex", gap: 6, overflowX: "auto" }}>
-              <button style={navBtn(view === VIEWS.HOME)} onClick={() => setView(VIEWS.HOME)}>Accueil</button>
-              <button style={navBtn(view === VIEWS.RECUEIL)} onClick={() => { resetRecueil(); setView(VIEWS.RECUEIL); }}>Recueil</button>
-              <button style={navBtn(view === VIEWS.RESIDENTS)} onClick={() => setView(VIEWS.RESIDENTS)}>Personnes</button>
-              <button style={navBtn(view === VIEWS.HISTORIQUE)} onClick={() => setView(VIEWS.HISTORIQUE)}>Historique</button>
-            </div>
-          </div>
-          {view === VIEWS.HOME && renderHome()}
-          {view === VIEWS.RESIDENTS && renderResidents()}
-          {view === VIEWS.RECUEIL && renderRecueil()}
-          {view === VIEWS.HISTORIQUE && renderHistorique()}
-        </div>
-      );
-    }
+    presentsList.length>0&&h('div',{style:{marginTop:8}},
+      h('div',{className:'info-box'},'ℹ️ ',h('span',null,h('strong',null,presentsList.length+' personne(s)'),' seront enregistrées.')),
+      h('button',{className:'btn-primary',onClick:saveAll,disabled:saving},
+        saving?h('span',{className:'spinner'}):('💾 Enregistrer ('+presentsList.length+' pers.)')
+      )
+    )
+  );
+}
 
-    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
-  </script>
+// ── PAGE RÉSIDENTS ────────────────────────────────────────────────
+function PageResidents({residents,onChanged,showToast}) {
+  const [search,setSearch] = useState('');
+  const [filterEtab,setFilterEtab] = useState('');
+  const [form,setForm] = useState({prenom:'',initiale:'',etab:''});
+  const [saving,setSaving] = useState(false);
+
+  const filtered=residents.filter(r=>{
+    const mE=!filterEtab||r.etab===filterEtab;
+    const q=search.toLowerCase();
+    const mS=!q||r.prenom.toLowerCase().includes(q)||r.initiale.toLowerCase().startsWith(q);
+    return mE&&mS;
+  });
+
+  async function addR() {
+    if(!form.prenom.trim()||!form.initiale.trim()||!form.etab){showToast('⚠️ Renseignez tous les champs');return;}
+    setSaving(true);
+    const{error}=await sb.from('residents').insert({prenom:form.prenom.trim(),initiale:form.initiale.trim().toUpperCase().slice(0,3),etab:form.etab});
+    setSaving(false);
+    if(error){showToast('❌ '+error.message);return;}
+    showToast('✅ Personne ajoutée');setForm({prenom:'',initiale:'',etab:''});onChanged();
+  }
+
+  async function delR(id,prenom) {
+    if(!confirm('Supprimer '+prenom+' ?'))return;
+    await sb.from('residents').delete().eq('id',id);
+    showToast('🗑️ Supprimé');onChanged();
+  }
+
+  return h('div',{className:'page'},
+    h('div',{className:'add-form'},
+      h('h3',null,'➕ Ajouter une personne'),
+      h('div',{className:'form-grid'},
+        h('div',{className:'form-row'},h('label',{className:'slabel'},'Prénom'),h('input',{className:'inp',type:'text',placeholder:'Prénom',value:form.prenom,onChange:e=>setForm(p=>({...p,prenom:e.target.value}))})),
+        h('div',{className:'form-row'},h('label',{className:'slabel'},'3 premières lettres du nom'),h('input',{className:'inp',type:'text',placeholder:'Ex : DUP',maxLength:3,value:form.initiale,onChange:e=>setForm(p=>({...p,initiale:e.target.value.toUpperCase()}))}))
+      ),
+      h('div',{className:'form-row'},
+        h('label',{className:'slabel'},'Établissement'),
+        h('select',{className:'sel-inp',value:form.etab,onChange:e=>setForm(p=>({...p,etab:e.target.value}))},
+          h('option',{value:''},'Choisir…'),
+          ETABS.map(e=>h('option',{key:e,value:e},e+' — '+ETAB_LABELS[e]))
+        )
+      ),
+      h('button',{className:'btn-add',onClick:addR,disabled:saving},saving?h('span',{className:'spinner'}):'➕','Ajouter')
+    ),
+    h('div',{className:'search-wrap'},h('span',{className:'search-ico'},'🔍'),h('input',{type:'text',placeholder:'Rechercher…',value:search,onChange:e=>setSearch(e.target.value)})),
+    h('div',{className:'chips'},
+      h('span',{className:'chip'+(filterEtab===''?' active':''),onClick:()=>setFilterEtab('')},'Tous',h('span',{className:'count-pill'},residents.length)),
+      ETABS.map(e=>{const n=residents.filter(r=>r.etab===e).length;return n>0?h('span',{key:e,className:'chip'+(filterEtab===e?' active':''),onClick:()=>setFilterEtab(e)},e,h('span',{className:'count-pill'},n)):null;})
+    ),
+    filtered.length===0&&h('div',{className:'empty'},h('div',{className:'ico'},'👤'),h('p',null,'Aucune personne trouvée')),
+    filtered.map(r=>h('div',{key:r.id,className:'res-card'},
+      h('div',{className:'res-av'},r.prenom[0]+r.initiale[0]),
+      h('div',{style:{flex:1}},h('div',{className:'res-name'},r.prenom+' ',h('strong',null,r.initiale+'.')),h('div',{className:'res-detail'},ETAB_LABELS[r.etab])),
+      h('span',{className:'res-etab'},r.etab),
+      h('button',{className:'btn-del',onClick:()=>delR(r.id,r.prenom)},'🗑')
+    ))
+  );
+}
+
+// ── PAGE HISTORIQUE ───────────────────────────────────────────────
+function PageHistorique({recueils}) {
+  const [fEtab,setFEtab] = useState('');
+  const [fPrenom,setFPrenom] = useState('');
+  const [fJour,setFJour] = useState('');
+  const [fDu,setFDu] = useState('');
+  const [fAu,setFAu] = useState('');
+  const hasFiltres=fEtab||fPrenom||fJour||fDu||fAu;
+  const iStyle={border:'1px solid var(--creme-dark)',borderRadius:'var(--radius)',padding:'9px 12px',fontSize:'0.82rem',background:'var(--blanc)',color:'var(--brun)',outline:'none',width:'100%'};
+
+  const filtered=recueils.filter(r=>{
+    const mE=!fEtab||r.etab===fEtab;
+    const mP=!fPrenom||(r.residents?.prenom||'').toLowerCase().includes(fPrenom.toLowerCase());
+    const mJ=!fJour||r.date===fJour;
+    const mD=!fDu||r.date>=fDu;
+    const mA=!fAu||r.date<=fAu;
+    return mE&&mP&&mJ&&mD&&mA;
+  });
+
+  function exportCSV() {
+    const rows=[['Date','Établissement','Prénom','Initiale','Activité','Photo','Interne','Externe','Détail','Obs','Pro'],...filtered.map(r=>[r.date,r.etab,r.residents?.prenom||'',r.residents?.initiale||'',r.activite||'',r.photo,r.interne,r.externe,r.ext_detail||'',r.obs||'',r.pro||''])];
+    const csv=rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(';')).join('\n');
+    const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=url;a.download='droitimage_'+new Date().toISOString().split('T')[0]+'.csv';a.click();
+  }
+
+  return h('div',{className:'page'},
+    h('div',{className:'filter-box'},
+      h('div',{className:'filter-hdr'},
+        h('span',null,'🔍 Filtres'),
+        hasFiltres&&h('button',{className:'btn-reset',onClick:()=>{setFEtab('');setFPrenom('');setFJour('');setFDu('');setFAu('');}}, '✕ Réinitialiser')
+      ),
+      h('div',{className:'f2'},
+        h('div',null,h('label',{className:'slabel'},'Établissement'),h('select',{style:{...iStyle,appearance:'none'},value:fEtab,onChange:e=>setFEtab(e.target.value)},h('option',{value:''},'Tous'),ETABS.map(e=>h('option',{key:e,value:e},e)))),
+        h('div',null,h('label',{className:'slabel'},'Prénom'),h('input',{style:iStyle,type:'text',placeholder:'Rechercher…',value:fPrenom,onChange:e=>setFPrenom(e.target.value)}))
+      ),
+      h('div',{style:{marginBottom:10}},h('label',{className:'slabel'},'Jour précis'),h('input',{style:iStyle,type:'date',value:fJour,onChange:e=>{setFJour(e.target.value);setFDu('');setFAu('');}})),
+      h('div',null,h('label',{className:'slabel'},'Période'),h('div',{className:'f2'},h('input',{style:iStyle,type:'date',value:fDu,onChange:e=>{setFDu(e.target.value);setFJour('');}}),h('input',{style:iStyle,type:'date',value:fAu,onChange:e=>{setFAu(e.target.value);setFJour('');}}) ))
+    ),
+    h('div',{style:{display:'flex',alignItems:'center',gap:10,marginBottom:14}},
+      h('span',{style:{fontSize:'0.78rem',color:'var(--gris)',flex:1}},h('strong',{style:{color:'var(--brun)'}},filtered.length),' enregistrement'+(filtered.length>1?'s':'')+(hasFiltres?' (filtrés)':'')),
+      h('button',{className:'btn-export',onClick:exportCSV},'📥 Exporter CSV')
+    ),
+    filtered.length===0&&h('div',{className:'empty'},h('div',{className:'ico'},'📋'),h('p',null,'Aucun enregistrement trouvé')),
+    filtered.map(r=>h('div',{key:r.id,className:'hist-item'},
+      h('div',{className:'hist-hdr'},h('span',{className:'hist-name'},(r.residents?.prenom||'?')+' '+(r.residents?.initiale||'')+'.',),h('span',{className:'b-etab'},r.etab),h('span',{className:'hist-date'},new Date(r.date).toLocaleDateString('fr-FR'))),
+      r.activite&&h('div',{className:'hist-act'},'🎯 '+r.activite),
+      h('div',{className:'badges-row'},
+        h('span',{className:r.photo==='oui'?'b-oui':'b-non'},'📷 '+(r.photo==='oui'?'Photo ✓':'Photo ✗')),
+        h('span',{className:r.interne==='oui'?'b-oui':'b-non'},'🏠 '+(r.interne==='oui'?'Interne ✓':'Interne ✗')),
+        h('span',{className:r.externe==='oui'?'b-oui':'b-non'},'🌐 '+(r.externe==='oui'?'Externe ✓':'Externe ✗')),
+        r.pro&&h('span',{className:'b-etab'},'👤 '+r.pro)
+      ),
+      r.obs&&h('div',{style:{fontSize:'0.75rem',color:'var(--gris)',marginTop:6}},'💬 '+r.obs)
+    ))
+  );
+}
+
+// ── APP PRINCIPALE ────────────────────────────────────────────────
+function App() {
+  const [auth,setAuth] = useState(sessionStorage.getItem('lpb_auth')==='1');
+  const [page,setPage] = useState('accueil');
+  const [session,setSession] = useState(null);
+  const [residents,setResidents] = useState([]);
+  const [recueils,setRecueils] = useState([]);
+  const [toast,setToast] = useState(null);
+
+  function showToast(msg){setToast(msg);setTimeout(()=>setToast(null),2500);}
+
+  const loadRes = useCallback(async()=>{const{data,error}=await sb.from('residents').select('*').order('prenom');if(!error)setResidents(data||[]);},[]);
+  const loadRec = useCallback(async()=>{const{data,error}=await sb.from('recueils').select('*,residents(prenom,initiale,etab)').order('created_at',{ascending:false}).limit(200);if(!error)setRecueils(data||[]);},[]);
+
+  useEffect(()=>{loadRes();loadRec();},[]);
+
+  if(!auth) return h(Login,{onSuccess:()=>setAuth(true)});
+
+  const residentsEtab = session?residents.filter(r=>r.etab===session.etab):[];
+
+  const TABS=[{id:'accueil',icon:'🏠',label:'Accueil'},{id:'recueil',icon:'📋',label:'Recueil'},{id:'residents',icon:'👥',label:'Personnes'},{id:'historique',icon:'📊',label:'Historique'}];
+
+  return h('div',null,
+    // HEADER
+    h('div',{className:'header'},
+      h(Logo),
+      h('div',null,h('div',{className:'header-title'},"Droit à l'image"),h('div',{className:'header-sub'},'Le Pré de la Bataille')),
+      session&&h('div',{className:'header-badge'},h('span',null,session.etab),h('div',{style:{color:'var(--or-light)',fontWeight:300,fontSize:'0.68rem'}},session.pro))
+    ),
+    // NAV
+    h('div',{className:'nav-bar'},
+      TABS.map(t=>h('button',{key:t.id,className:'nav-tab'+(page===t.id?' active':''),onClick:()=>setPage(t.id)},h('span',{className:'nav-icon'},t.icon),t.label))
+    ),
+    // PAGES
+    page==='accueil'&&h(PageAccueil,{residents,onStart:(e,p)=>{setSession({etab:e,pro:p});setPage('recueil');},session}),
+    page==='recueil'&&h(PageRecueil,{session,residents:residentsEtab,onSaved:()=>{loadRec();showToast('✅ Consentements enregistrés');},showToast}),
+    page==='residents'&&h(PageResidents,{residents,onChanged:loadRes,showToast}),
+    page==='historique'&&h(PageHistorique,{recueils,residents}),
+    toast&&h('div',{className:'toast'},toast)
+  );
+}
+
+ReactDOM.render(h(App), document.getElementById('root'));
+</script>
 </body>
 </html>
