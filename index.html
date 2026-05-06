@@ -204,82 +204,55 @@ if('serviceWorker' in navigator){
   });
 }
 
-// ── INDEXEDDB ─────────────────────────────────────────────────────
-const DB_NAME='lpb_offline';const DB_VERSION=2;
-let db=null;
+// ── STOCKAGE LOCAL (localStorage) ────────────────────────────────
+// Plus fiable qu'IndexedDB en PWA installée
 
-function openDB(){
-  return new Promise((res,rej)=>{
-    if(db){res(db);return;}
-    const req=indexedDB.open(DB_NAME,DB_VERSION);
-    req.onupgradeneeded=e=>{
-      const d=e.target.result;
-      if(!d.objectStoreNames.contains('residents')){
-        d.createObjectStore('residents',{keyPath:'id'});
-      }
-      if(!d.objectStoreNames.contains('pending')){
-        // Recueils en attente de sync
-        const s=d.createObjectStore('pending',{keyPath:'local_id',autoIncrement:true});
-        s.createIndex('synced','synced',{unique:false});
-      }
-      if(!d.objectStoreNames.contains('recueils_cache')){
-        d.createObjectStore('recueils_cache',{keyPath:'id'});
-      }
-    };
-    req.onsuccess=e=>{db=e.target.result;res(db);};
-    req.onerror=()=>rej(req.error);
-  });
-}
+function lsGet(key){ try{const v=localStorage.getItem(key);return v?JSON.parse(v):null;}catch{return null;} }
+function lsSet(key,val){ try{localStorage.setItem(key,JSON.stringify(val));return true;}catch(e){console.error('lsSet',e);return false;} }
+function lsRemove(key){ try{localStorage.removeItem(key);}catch{} }
 
+// Résidents en cache
 async function idbGetAll(store){
-  const d=await openDB();
-  return new Promise((res,rej)=>{
-    const tx=d.transaction(store,'readonly');
-    const req=tx.objectStore(store).getAll();
-    req.onsuccess=()=>res(req.result);
-    req.onerror=()=>rej(req.error);
-  });
+  if(store==='residents') return lsGet('cache_residents')||[];
+  if(store==='pending') return lsGet('pending_recueils')||[];
+  if(store==='recueils_cache') return lsGet('cache_recueils')||[];
+  return [];
 }
 
 async function idbPut(store,item){
-  const d=await openDB();
-  return new Promise((res,rej)=>{
-    const tx=d.transaction(store,'readwrite');
-    const req=tx.objectStore(store).put(item);
-    req.onsuccess=()=>res(req.result);
-    req.onerror=()=>rej(req.error);
-  });
+  if(store==='pending'){
+    const list=lsGet('pending_recueils')||[];
+    // Générer un local_id unique
+    item.local_id = Date.now()+'_'+Math.random().toString(36).slice(2);
+    list.push(item);
+    lsSet('pending_recueils',list);
+    return item.local_id;
+  }
+  if(store==='residents'){
+    const list=lsGet('cache_residents')||[];
+    const idx=list.findIndex(r=>r.id===item.id);
+    if(idx>=0) list[idx]=item; else list.push(item);
+    lsSet('cache_residents',list);
+  }
+  return null;
 }
 
 async function idbPutAll(store,items){
-  const d=await openDB();
-  return new Promise((res,rej)=>{
-    const tx=d.transaction(store,'readwrite');
-    const s=tx.objectStore(store);
-    items.forEach(item=>s.put(item));
-    tx.oncomplete=()=>res();
-    tx.onerror=()=>rej(tx.error);
-  });
+  if(store==='residents') lsSet('cache_residents',items);
+  if(store==='recueils_cache') lsSet('cache_recueils',items);
 }
 
 async function idbDelete(store,key){
-  const d=await openDB();
-  return new Promise((res,rej)=>{
-    const tx=d.transaction(store,'readwrite');
-    const req=tx.objectStore(store).delete(key);
-    req.onsuccess=()=>res();
-    req.onerror=()=>rej(req.error);
-  });
+  if(store==='pending'){
+    const list=(lsGet('pending_recueils')||[]).filter(r=>r.local_id!==key);
+    lsSet('pending_recueils',list);
+  }
 }
 
 async function idbClear(store){
-  const d=await openDB();
-  return new Promise((res,rej)=>{
-    const tx=d.transaction(store,'readwrite');
-    const req=tx.objectStore(store).clear();
-    req.onsuccess=()=>res();
-    req.onerror=()=>rej(req.error);
-  });
+  if(store==='residents') lsRemove('cache_residents');
+  if(store==='recueils_cache') lsRemove('cache_recueils');
+  if(store==='pending') lsRemove('pending_recueils');
 }
 
 // ── COMPOSANTS DE BASE ────────────────────────────────────────────
