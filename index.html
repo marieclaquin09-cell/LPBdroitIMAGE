@@ -405,21 +405,26 @@ function PageRecueil({session,residents,onSaved,showToast,isOnline}){
     });
 
     if(isOnline){
-      // En ligne : envoi direct
       const{error}=await sb.from('recueils').insert(rows);
       setSaving(false);
       if(error){showToast('❌ '+error.message);return;}
       showToast('✅ Enregistré en ligne');
     } else {
-      // Hors ligne : stockage local en attente
-      for(const row of rows){
-        await idbPut('pending',{...row,synced:false,local_id:undefined,saved_at:new Date().toISOString(),
-          // On garde le resident en local pour l'affichage
-          residents:{prenom:residents.find(r=>r.id===row.resident_id)?.prenom,initiale:residents.find(r=>r.id===row.resident_id)?.initiale}
-        });
+      try {
+        for(const row of rows){
+          const item={...row,synced:false,saved_at:new Date().toISOString(),
+            residents:{prenom:residents.find(r=>r.id===row.resident_id)?.prenom,initiale:residents.find(r=>r.id===row.resident_id)?.initiale}
+          };
+          delete item.local_id;
+          await idbPut('pending',item);
+        }
+        setSaving(false);
+        showToast('💾 Sauvegardé hors ligne — sera synchronisé à la reconnexion');
+      } catch(err){
+        setSaving(false);
+        showToast('❌ Erreur sauvegarde : '+err.message);
+        console.error('IDB error:',err);
       }
-      setSaving(false);
-      showToast('💾 Sauvegardé hors ligne — sera synchronisé à la reconnexion');
     }
     onSaved();setSelIds([]);setConsents({});setActivite('');
   }
@@ -645,7 +650,9 @@ function PageHistorique({recueils,pendingCount,onChanged,showToast,isOnline}){
 function App(){
   const [auth,setAuth]=useState(sessionStorage.getItem('lpb_auth')==='1');
   const [page,setPage]=useState('accueil');
-  const [session,setSession]=useState(null);
+  const [session,setSession]=useState(()=>{
+    try{const s=localStorage.getItem('lpb_session');return s?JSON.parse(s):null;}catch{return null;}
+  });
   const [residents,setResidents]=useState([]);
   const [recueils,setRecueils]=useState([]);
   const [pending,setPending]=useState([]);
@@ -784,7 +791,7 @@ function App(){
     // Nav
     h('div',{className:'nav-bar'},TABS.map(t=>h('button',{key:t.id,className:'nav-tab'+(page===t.id?' active':''),onClick:()=>setPage(t.id)},h('span',{className:'nav-icon'},t.icon),t.label))),
     // Pages
-    page==='accueil'&&h(PageAccueil,{residents,onStart:(e,p)=>{setSession({etab:e,pro:p});setPage('recueil');},session}),
+    page==='accueil'&&h(PageAccueil,{residents,onStart:(e,p)=>{const s={etab:e,pro:p};setSession(s);localStorage.setItem('lpb_session',JSON.stringify(s));setPage('recueil');},session}),
     page==='recueil'&&h(PageRecueil,{session,residents:residentsEtab,onSaved:()=>{loadRec();},showToast,isOnline}),
     page==='residents'&&h(PageResidents,{residents,onChanged:()=>{loadRes();loadRec();},showToast,isOnline}),
     page==='historique'&&h(PageHistorique,{recueils,pendingCount:pending.length,onChanged:loadRec,showToast,isOnline}),
