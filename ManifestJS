@@ -1,0 +1,25 @@
+
+{
+  "name": "Droit à l'image — Le Pré de la Bataille",
+  "short_name": "LPB Image",
+  "description": "Recueil du droit à l'image pour Le Pré de la Bataille",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#2C1F0E",
+  "theme_color": "#C9A84C",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
