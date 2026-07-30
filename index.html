@@ -63,6 +63,17 @@
     .etab-icon{font-size:1.4rem;margin-bottom:6px}
     .etab-name{font-weight:600;font-size:0.95rem;color:var(--brun)}
     .etab-count{font-size:0.72rem;color:var(--gris);margin-top:3px}
+    .etab-grid{margin-bottom:10px}
+    .transverse-card{display:flex;align-items:center;gap:12px;background:var(--blanc);border:2px dashed var(--creme-dark);border-radius:var(--radius);padding:14px 16px;cursor:pointer;transition:all 0.2s;margin-bottom:20px;box-shadow:var(--shadow-sm)}
+    .transverse-card:hover{border-color:var(--or)}
+    .transverse-card.sel{border-style:solid;border-color:var(--or);background:var(--creme)}
+    .transverse-ico{font-size:1.5rem;flex-shrink:0}
+    .transverse-title{font-weight:600;font-size:0.95rem;color:var(--brun)}
+    .transverse-sub{font-size:0.72rem;color:var(--gris);margin-top:2px}
+    .transverse-check{margin-left:auto;width:26px;height:26px;border-radius:50%;border:2px solid var(--creme-dark);display:flex;align-items:center;justify-content:center;color:#fff;font-size:0.85rem;font-weight:700;flex-shrink:0}
+    .transverse-check.on{background:var(--or);border-color:var(--or)}
+    .group-hdr{font-size:0.72rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--brun-light);background:var(--creme-dark);padding:7px 12px;border-radius:8px;margin:14px 0 8px}
+    .badge-transverse{background:var(--or)!important;color:var(--brun)!important}
     .field-box{background:var(--blanc);border-radius:var(--radius);padding:16px;margin-bottom:16px;border:1px solid var(--creme-dark)}
     .inp{width:100%;border:1px solid var(--creme-dark);border-radius:8px;padding:10px 14px;font-size:0.9rem;background:var(--creme);color:var(--brun);outline:none;transition:border-color 0.2s}
     .inp:focus{border-color:var(--or);background:var(--blanc)}
@@ -156,6 +167,8 @@
     .btn-export{background:var(--or);color:var(--brun);border:none;border-radius:10px;padding:9px 16px;font-size:0.82rem;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all 0.2s}
     .btn-export:hover{background:#B8973E}
     .btn-export:disabled{opacity:0.4;cursor:not-allowed}
+    .btn-export-sortie{background:var(--creme-dark);color:var(--brun);border:none;border-radius:8px;padding:5px 9px;font-size:0.82rem;cursor:pointer;margin-right:8px;flex-shrink:0;transition:all 0.2s}
+    .btn-export-sortie:hover{background:var(--or)}
     .btn-sel-all{background:transparent;color:var(--or-light);border:1px solid rgba(201,168,76,0.3);border-radius:10px;padding:8px 14px;font-size:0.78rem;font-weight:600;cursor:pointer;transition:all 0.2s}
     .btn-sel-all:hover{border-color:var(--or);color:var(--or)}
     .spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(201,168,76,0.3);border-top-color:var(--or);border-radius:50%;animation:spin 0.7s linear infinite}
@@ -327,18 +340,27 @@ function PageAccueil({residents,onStart,session}){
   const [etab,setEtab]=useState(session?.etab||'');
   const [pro,setPro]=useState(session?.pro||'');
   const counts=ETABS.reduce((a,e)=>{a[e]=residents.filter(r=>r.etab===e).length;return a},{});
+  const isT=etab==='TRANSVERSE';
   return h('div',{className:'page'},
     h('div',{className:'hero'},h('h2',null,"Recueil du droit à l'image"),h('p',null,'Sélectionnez votre établissement pour commencer')),
     h('span',{className:'slabel'},'Votre établissement'),
     h('div',{className:'etab-grid'},ETABS.map(e=>h('div',{key:e,className:'etab-card'+(etab===e?' sel':''),onClick:()=>setEtab(e)},
       h('div',{className:'etab-icon'},ETAB_ICONS[e]),h('div',{className:'etab-name'},e),h('div',{className:'etab-count'},counts[e]+' pers.')
     ))),
+    h('div',{className:'transverse-card'+(isT?' sel':''),onClick:()=>setEtab(isT?'':'TRANSVERSE')},
+      h('div',{className:'transverse-ico'},'🔀'),
+      h('div',null,
+        h('div',{className:'transverse-title'},'Sortie transversale'),
+        h('div',{className:'transverse-sub'},'Plusieurs établissements dans la même sortie')
+      ),
+      h('div',{className:'transverse-check'+(isT?' on':'')},isT?'✓':'')
+    ),
     h('div',{className:'field-box'},
       h('label',{className:'slabel'},'Votre prénom (professionnel)'),
       h('input',{className:'inp',type:'text',placeholder:'Ex : Marie',value:pro,onChange:e=>setPro(e.target.value)})
     ),
     h('button',{className:'btn-primary',disabled:!etab||!pro.trim(),onClick:()=>onStart(etab,pro.trim())},
-      'Commencer → '+(etab?etab+' ('+residents.filter(r=>r.etab===etab).length+' personnes)':'')
+      isT?('Commencer → Sortie transversale ('+residents.length+' personnes)'):('Commencer → '+(etab?etab+' ('+residents.filter(r=>r.etab===etab).length+' personnes)':''))
     ),
     h('div',{style:{textAlign:'center',marginTop:16,fontSize:'0.7rem',color:'var(--gris)',opacity:0.6}},'🔒 Données sauvegardées de façon sécurisée')
   );
@@ -346,6 +368,7 @@ function PageAccueil({residents,onStart,session}){
 
 // ── PAGE RECUEIL ──────────────────────────────────────────────────
 function PageRecueil({session,residents,onSaved,showToast,isOnline}){
+  const isTransverse=session?.etab==='TRANSVERSE';
   const [mode,setMode]=useState('selection');
   const [selIds,setSelIds]=useState([]);
   const [appel,setAppel]=useState({});
@@ -355,6 +378,7 @@ function PageRecueil({session,residents,onSaved,showToast,isOnline}){
   const [saving,setSaving]=useState(false);
 
   useEffect(()=>{const a={};residents.forEach(r=>a[r.id]='present');setAppel(a);},[residents]);
+  useEffect(()=>{if(isTransverse)setMode('selection');},[isTransverse]);
 
   function toggleSel(id){
     setSelIds(prev=>{
@@ -374,7 +398,7 @@ function PageRecueil({session,residents,onSaved,showToast,isOnline}){
     setSaving(true);
     const rows=presentsList.map(r=>{
       const c=consents[r.id]||{photo:false,interne:false,externe:false,ext_detail:'',obs:''};
-      return{resident_id:r.id,date,activite,photo:c.photo?'oui':'non',interne:c.interne?'oui':'non',externe:c.externe?'oui':'non',ext_detail:c.ext_detail||null,obs:c.obs||null,pro:session?.pro,etab:session?.etab};
+      return{resident_id:r.id,date,activite,photo:c.photo?'oui':'non',interne:c.interne?'oui':'non',externe:c.externe?'oui':'non',ext_detail:c.ext_detail||null,obs:c.obs||null,pro:session?.pro,etab:r.etab||session?.etab};
     });
 
     if(isOnline){
@@ -417,32 +441,44 @@ function PageRecueil({session,residents,onSaved,showToast,isOnline}){
     );
   }
 
+  function renderSelCard(r){
+    const sel=selIds.includes(r.id);
+    return h('div',{key:r.id,className:'r-card '+(sel?'sel-card':'unsel-card')},
+      h('div',{className:'r-row',onClick:()=>toggleSel(r.id)},
+        h('div',{className:'r-check'+(sel?' chk':'')},sel?'✓':''),
+        h('span',{className:'r-name'},r.prenom+' '+r.initiale+'.'),
+        sel&&h('span',{style:{marginLeft:'auto',fontSize:'0.7rem',color:'var(--or)',fontWeight:600}},'▼ consentements')
+      ),
+      sel&&h(ConsentZone,{r,zoneClass:''})
+    );
+  }
+
   if(!session) return h('div',{className:'page'},h('div',{className:'empty'},h('div',{className:'ico'},'🏠'),h('p',null,"Retournez à l'accueil")));
 
   return h('div',{className:'page'},
     h('div',{className:'session-banner'},
-      h('span',{className:'badge'},session.etab),
+      h('span',{className:'badge'+(isTransverse?' badge-transverse':'')},isTransverse?'🔀 Transversale':session.etab),
       h('span',{className:'banner-txt'},session.pro+' · '+new Date(date).toLocaleDateString('fr-FR',{day:'numeric',month:'long'})),
       !isOnline&&h('span',{className:'badge-offline'},'📴 Hors ligne')
     ),
+    isTransverse&&h('div',{className:'info-box'},'🔀 ',h('span',null,'Mode transversal : sélectionnez des personnes de plusieurs établissements. Chaque recueil reste rattaché à son établissement.')),
     h('div',{className:'act-row'},h('label',{className:'slabel'},"Activité du jour"),h('input',{className:'inp',type:'text',placeholder:'Ex : Sortie au parc…',value:activite,onChange:e=>setActivite(e.target.value)})),
     h('div',{className:'act-row'},h('label',{className:'slabel'},'Date'),h('input',{className:'inp',type:'date',value:date,onChange:e=>setDate(e.target.value)})),
-    h('div',{className:'mode-toggle'},
+    !isTransverse&&h('div',{className:'mode-toggle'},
       h('button',{className:'mode-btn'+(mode==='selection'?' active':''),onClick:()=>setMode('selection')},'☑️ Sélection manuelle'),
       h('button',{className:'mode-btn'+(mode==='appel'?' active':''),onClick:()=>setMode('appel')},'📋 Appel (cocher absents)')
     ),
-    residents.length===0&&h('div',{className:'empty'},h('div',{className:'ico'},'👥'),h('p',null,"Aucune personne enregistrée pour "+session.etab+".")),
-    mode==='selection'&&residents.length>0&&h('div',null,residents.map(r=>{
-      const sel=selIds.includes(r.id);
-      return h('div',{key:r.id,className:'r-card '+(sel?'sel-card':'unsel-card')},
-        h('div',{className:'r-row',onClick:()=>toggleSel(r.id)},
-          h('div',{className:'r-check'+(sel?' chk':'')},sel?'✓':''),
-          h('span',{className:'r-name'},r.prenom+' '+r.initiale+'.'),
-          sel&&h('span',{style:{marginLeft:'auto',fontSize:'0.7rem',color:'var(--or)',fontWeight:600}},'▼ consentements')
-        ),
-        sel&&h(ConsentZone,{r,zoneClass:''})
-      );
-    })),
+    residents.length===0&&h('div',{className:'empty'},h('div',{className:'ico'},'👥'),h('p',null,isTransverse?"Aucune personne enregistrée.":("Aucune personne enregistrée pour "+session.etab+"."))),
+    mode==='selection'&&residents.length>0&&(
+      isTransverse
+        ? h('div',null,ETABS.filter(e=>residents.some(r=>r.etab===e)).map(e=>
+            h('div',{key:e},
+              h('div',{className:'group-hdr'},ETAB_ICONS[e]+' '+ETAB_LABELS[e]+' — '+residents.filter(r=>r.etab===e).length+' pers.'),
+              residents.filter(r=>r.etab===e).map(r=>renderSelCard(r))
+            )
+          ))
+        : h('div',null,residents.map(r=>renderSelCard(r)))
+    ),
     mode==='appel'&&residents.length>0&&h('div',null,
       h('div',{className:'info-box'},'ℹ️ ',h('span',null,'Tous présents par défaut. Tapez pour marquer absent.')),
       residents.map(r=>{
@@ -555,16 +591,24 @@ function PageHistorique({recueils,pendingCount,onChanged,showToast,isOnline}){
     showToast('🗑️ Supprimé');onChanged();
   }
   const selectedItems=filtered.filter(r=>selected.has(r.id));
-  function exportCSV(){
-    const toExport=selectedItems.length>0?selectedItems:filtered;
-    if(!toExport.length){showToast('⚠️ Aucun enregistrement à exporter');return;}
+  function downloadCSV(items,filename){
+    if(!items.length){showToast('⚠️ Aucun enregistrement à exporter');return;}
     const rows=[['Date','Établissement','Prénom','Initiale','Activité','Photo','Interne','Externe','Détail externe','Obs','Professionnel'],
-      ...toExport.map(r=>[r.date,r.etab,r.residents?.prenom||'',r.residents?.initiale||'',r.activite||'',r.photo,r.interne,r.externe,r.ext_detail||'',r.obs||'',r.pro||''])];
+      ...items.map(r=>[r.date,r.etab,r.residents?.prenom||'',r.residents?.initiale||'',r.activite||'',r.photo,r.interne,r.externe,r.ext_detail||'',r.obs||'',r.pro||''])];
     const csv=rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(';')).join('\n');
     const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
     const url=URL.createObjectURL(blob);
-    const a=document.createElement('a');a.href=url;a.download='droitimage_'+(selectedItems.length>0?'selection_':'')+new Date().toISOString().split('T')[0]+'.csv';a.click();
+    const a=document.createElement('a');a.href=url;a.download=filename;a.click();
     URL.revokeObjectURL(url);
+  }
+  function slugify(s){return(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,40);}
+  function exportCSV(){
+    const toExport=selectedItems.length>0?selectedItems:filtered;
+    downloadCSV(toExport,'droitimage_'+(selectedItems.length>0?'selection_':'')+new Date().toISOString().split('T')[0]+'.csv');
+  }
+  function exportSortie(g){
+    downloadCSV(g.items,'droitimage_'+g.date+'_'+(slugify(g.activite)||'sortie')+'.csv');
+    showToast('📥 Sortie exportée ('+g.items.length+' pers.)');
   }
   return h('div',{className:'page'},
     pendingCount>0&&h('div',{className:'info-box',style:{background:'rgba(192,57,43,0.08)',borderColor:'rgba(192,57,43,0.3)'}},
@@ -593,6 +637,7 @@ function PageHistorique({recueils,pendingCount,onChanged,showToast,isOnline}){
             g.activite&&h('div',{className:'hist-group-sub'},'🎯 '+g.activite)
           ),
           h('span',{className:'hist-group-count'},g.items.length+' pers.'),
+          h('button',{className:'btn-export-sortie',onClick:e=>{e.stopPropagation();exportSortie(g);},title:'Exporter cette sortie'},'📥'),
           h('span',{className:'hist-group-toggle'},isOpen?'▲':'▼')
         ),
         isOpen&&h('div',null,g.items.map(r=>{
@@ -738,7 +783,7 @@ function App(){
 
   if(!auth) return h(Login,{onSuccess:()=>setAuth(true)});
 
-  const residentsEtab=session?residents.filter(r=>r.etab===session.etab):[];
+  const residentsEtab=session?(session.etab==='TRANSVERSE'?residents:residents.filter(r=>r.etab===session.etab)):[];
   const TABS=[{id:'accueil',icon:'🏠',label:'Accueil'},{id:'recueil',icon:'📋',label:'Recueil'},{id:'residents',icon:'👥',label:'Personnes'},{id:'historique',icon:'📊',label:'Historique'}];
 
   return h('div',null,
@@ -747,7 +792,7 @@ function App(){
       h(Logo),
       h('div',null,h('div',{className:'header-title'},"Droit à l'image"),h('div',{className:'header-sub'},'Le Pré de la Bataille')),
       h('div',{className:'header-right'},
-        session&&h('div',{className:'header-badge'},session.etab+' · '+session.pro),
+        session&&h('div',{className:'header-badge'},(session.etab==='TRANSVERSE'?'🔀 Transversale':session.etab)+' · '+session.pro),
         h('div',{className:'status-pill '+(isOnline?'on':'off')},
           h('span',{className:'online-dot '+(isOnline?'on':'off')}),
           isOnline?'En ligne':'Hors ligne'
