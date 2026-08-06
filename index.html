@@ -164,9 +164,13 @@
     .export-bar{background:var(--brun);border-radius:var(--radius);padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
     .export-count{color:var(--or-light);font-size:0.78rem;flex:1}
     .export-count strong{color:var(--or)}
-    .btn-export{background:var(--or);color:var(--brun);border:none;border-radius:10px;padding:9px 16px;font-size:0.82rem;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all 0.2s}
-    .btn-export:hover{background:#B8973E}
+    .btn-export{background:transparent;color:var(--or-light);border:1px solid rgba(201,168,76,0.5);border-radius:10px;padding:9px 16px;font-size:0.82rem;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all 0.2s}
+    .btn-export:hover{border-color:var(--or);color:var(--or)}
     .btn-export:disabled{opacity:0.4;cursor:not-allowed}
+    .btn-export-share{background:var(--or);color:var(--brun);border:none;border-radius:10px;padding:9px 16px;font-size:0.82rem;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all 0.2s}
+    .btn-export-share:hover{background:var(--or-light)}
+    .btn-export-share:disabled{opacity:0.4;cursor:not-allowed}
+    .confid-note{display:flex;gap:6px;align-items:flex-start;font-size:0.7rem;color:var(--gris);line-height:1.35;margin:-6px 2px 16px}
     .btn-export-sortie{background:var(--creme-dark);color:var(--brun);border:none;border-radius:8px;padding:5px 9px;font-size:0.82rem;cursor:pointer;margin-right:8px;flex-shrink:0;transition:all 0.2s}
     .btn-export-sortie:hover{background:var(--or)}
     .btn-sel-all{background:transparent;color:var(--or-light);border:1px solid rgba(201,168,76,0.3);border-radius:10px;padding:8px 14px;font-size:0.78rem;font-weight:600;cursor:pointer;transition:all 0.2s}
@@ -591,24 +595,42 @@ function PageHistorique({recueils,pendingCount,onChanged,showToast,isOnline}){
     showToast('🗑️ Supprimé');onChanged();
   }
   const selectedItems=filtered.filter(r=>selected.has(r.id));
-  function downloadCSV(items,filename){
-    if(!items.length){showToast('⚠️ Aucun enregistrement à exporter');return;}
+  const canShareFiles=(()=>{try{return typeof navigator!=='undefined'&&navigator.canShare&&navigator.canShare({files:[new File([''],'t.csv',{type:'text/csv'})]});}catch(e){return false;}})();
+  function buildCSVBlob(items){
     const rows=[['Date','Établissement','Prénom','Initiale','Activité','Photo','Interne','Externe','Détail externe','Obs','Professionnel'],
       ...items.map(r=>[r.date,r.etab,r.residents?.prenom||'',r.residents?.initiale||'',r.activite||'',r.photo,r.interne,r.externe,r.ext_detail||'',r.obs||'',r.pro||''])];
     const csv=rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(';')).join('\n');
-    const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
+    return new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
+  }
+  function downloadBlob(blob,filename){
     const url=URL.createObjectURL(blob);
     const a=document.createElement('a');a.href=url;a.download=filename;a.click();
     URL.revokeObjectURL(url);
   }
   function slugify(s){return(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,40);}
+  async function shareCSV(items,filename,label){
+    if(!items.length){showToast('⚠️ Aucun enregistrement à envoyer');return;}
+    const blob=buildCSVBlob(items);
+    if(canShareFiles){
+      try{
+        await navigator.share({files:[new File([blob],filename,{type:'text/csv'})],title:label,text:label+' — données confidentielles, à envoyer via la messagerie professionnelle uniquement.'});
+        return;
+      }catch(e){if(e&&e.name==='AbortError')return;}
+    }
+    downloadBlob(blob,filename);
+    showToast('📥 Fichier téléchargé — joignez-le à votre mail Outlook');
+  }
   function exportCSV(){
     const toExport=selectedItems.length>0?selectedItems:filtered;
-    downloadCSV(toExport,'droitimage_'+(selectedItems.length>0?'selection_':'')+new Date().toISOString().split('T')[0]+'.csv');
+    if(!toExport.length){showToast('⚠️ Aucun enregistrement à exporter');return;}
+    downloadBlob(buildCSVBlob(toExport),'droitimage_'+(selectedItems.length>0?'selection_':'')+new Date().toISOString().split('T')[0]+'.csv');
+  }
+  function shareAll(){
+    const toExport=selectedItems.length>0?selectedItems:filtered;
+    shareCSV(toExport,'droitimage_'+(selectedItems.length>0?'selection_':'')+new Date().toISOString().split('T')[0]+'.csv',"Recueil droit à l'image");
   }
   function exportSortie(g){
-    downloadCSV(g.items,'droitimage_'+g.date+'_'+(slugify(g.activite)||'sortie')+'.csv');
-    showToast('📥 Sortie exportée ('+g.items.length+' pers.)');
+    shareCSV(g.items,'droitimage_'+g.date+'_'+(slugify(g.activite)||'sortie')+'.csv','Sortie '+(g.activite?g.activite+' ':'')+'du '+g.date);
   }
   return h('div',{className:'page'},
     pendingCount>0&&h('div',{className:'info-box',style:{background:'rgba(192,57,43,0.08)',borderColor:'rgba(192,57,43,0.3)'}},
@@ -625,8 +647,10 @@ function PageHistorique({recueils,pendingCount,onChanged,showToast,isOnline}){
     h('div',{className:'export-bar'},
       h('span',{className:'export-count'},h('strong',null,filtered.length),' enregistrement'+(filtered.length>1?'s':''),selectedItems.length>0&&h('span',null,' · ',h('strong',null,selectedItems.length),' sélectionné'+(selectedItems.length>1?'s':''))),
       h('button',{className:'btn-sel-all',onClick:toggleSelectAll},allSelected?'☐ Tout décocher':'☑ Tout sélectionner'),
+      canShareFiles&&h('button',{className:'btn-export-share',onClick:shareAll,disabled:filtered.length===0},'📤 '+(selectedItems.length>0?'Partager sélection ('+selectedItems.length+')':'Partager tout')),
       h('button',{className:'btn-export',onClick:exportCSV,disabled:filtered.length===0},'📥 '+(selectedItems.length>0?'Exporter sélection ('+selectedItems.length+')':'Exporter tout'))
     ),
+    filtered.length>0&&h('div',{className:'confid-note'},'🔒 ',h('span',null,'Données nominatives : à transmettre uniquement via la messagerie professionnelle (Outlook).')),
     filtered.length===0&&h('div',{className:'empty'},h('div',{className:'ico'},'📋'),h('p',null,'Aucun enregistrement trouvé')),
     groups.map(g=>{
       const isOpen=expanded.has(g.key);
@@ -637,7 +661,7 @@ function PageHistorique({recueils,pendingCount,onChanged,showToast,isOnline}){
             g.activite&&h('div',{className:'hist-group-sub'},'🎯 '+g.activite)
           ),
           h('span',{className:'hist-group-count'},g.items.length+' pers.'),
-          h('button',{className:'btn-export-sortie',onClick:e=>{e.stopPropagation();exportSortie(g);},title:'Exporter cette sortie'},'📥'),
+          h('button',{className:'btn-export-sortie',onClick:e=>{e.stopPropagation();exportSortie(g);},title:canShareFiles?'Partager cette sortie':'Exporter cette sortie'},canShareFiles?'📤':'📥'),
           h('span',{className:'hist-group-toggle'},isOpen?'▲':'▼')
         ),
         isOpen&&h('div',null,g.items.map(r=>{
