@@ -1,5 +1,5 @@
 // ── SERVICE WORKER — LPB Droit à l'image ──────────────────────────
-const CACHE_NAME = 'lpb-v1';
+const CACHE_NAME = 'lpb-v2';
 const OFFLINE_URLS = [
   './',
   './index.html',
@@ -13,13 +13,12 @@ const OFFLINE_URLS = [
 self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(CACHE_NAME).then(cache => {
-      // On cache ce qu'on peut, on ignore les erreurs réseau
       return Promise.allSettled(OFFLINE_URLS.map(url => cache.add(url)));
     }).then(() => self.skipWaiting())
   );
 });
 
-// Activation : nettoyage des anciens caches
+// Activation : suppression des anciens caches (dont lpb-v1)
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys().then(keys =>
@@ -28,7 +27,6 @@ self.addEventListener('activate', e => {
   );
 });
 
-// Fetch : Cache-first pour les ressources statiques, network-first pour Supabase
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
 
@@ -40,22 +38,29 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  // Tout le reste : cache en priorité, réseau en fallback
+  // Page / index.html : RÉSEAU D'ABORD (pour toujours avoir la dernière version),
+  // repli sur le cache uniquement si hors ligne.
+  if (e.request.mode === 'navigate' || url.pathname.endsWith('/') || url.pathname.endsWith('index.html')) {
+    e.respondWith(
+      fetch(e.request).then(response => {
+        const clone = response.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
+        return response;
+      }).catch(() => caches.match(e.request).then(c => c || caches.match('./index.html')))
+    );
+    return;
+  }
+
+  // Reste (librairies React/Supabase, polices — URLs figées) : cache d'abord
   e.respondWith(
     caches.match(e.request).then(cached => {
       if (cached) return cached;
       return fetch(e.request).then(response => {
-        // Mettre en cache les nouvelles ressources statiques
         if (response.ok && e.request.method === 'GET') {
           const clone = response.clone();
           caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
         }
         return response;
-      }).catch(() => {
-        // Fallback sur index.html pour la navigation
-        if (e.request.mode === 'navigate') {
-          return caches.match('./index.html');
-        }
       });
     })
   );
