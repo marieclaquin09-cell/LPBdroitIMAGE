@@ -2,9 +2,10 @@ name: Supabase Heartbeat
 
 on:
   schedule:
-    # Tous les jours à 8h00 UTC — marge maximale, aucune pause possible
+    # Deux fois par jour (08h00 et 20h00 UTC) — activité clairement suffisante
     - cron: '0 8 * * *'
-  workflow_dispatch:   # permet de le lancer à la main depuis l'onglet Actions
+    - cron: '0 20 * * *'
+  workflow_dispatch:   # lancement manuel possible depuis l'onglet Actions
 
 jobs:
   ping:
@@ -13,6 +14,8 @@ jobs:
       - name: Ping Supabase
         run: |
           echo "Ping du $(date -u)"
-          curl -sf -o /dev/null -w "Réponse HTTP %{http_code}\n" \
-            "https://mfczutghueypranjeixx.supabase.co/rest/v1/residents?select=id&limit=1" \
-            -H "apikey: sb_publishable_aYGmG0tKFPCI2UPkWakEvw_qn5u-8Ww"
+          for endpoint in "residents?select=id&limit=1" "recueils?select=id&limit=1"; do
+            curl -sf -o /dev/null -w "  $endpoint -> HTTP %{http_code}\n" \
+              "https://mfczutghueypranjeixx.supabase.co/rest/v1/$endpoint" \
+              -H "apikey: sb_publishable_aYGmG0tKFPCI2UPkWakEvw_qn5u-8Ww"
+          done
