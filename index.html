@@ -173,6 +173,8 @@
     .confid-note{display:flex;gap:6px;align-items:flex-start;font-size:0.7rem;color:var(--gris);line-height:1.35;margin:-6px 2px 16px}
     .btn-export-sortie{background:var(--creme-dark);color:var(--brun);border:none;border-radius:8px;padding:5px 9px;font-size:0.82rem;cursor:pointer;margin-right:8px;flex-shrink:0;transition:all 0.2s}
     .btn-export-sortie:hover{background:var(--or)}
+    .btn-del-sortie{background:rgba(192,57,43,0.22);color:#F3C1BA}
+    .btn-del-sortie:hover{background:var(--rouge);color:white}
     .btn-sel-all{background:transparent;color:var(--or-light);border:1px solid rgba(201,168,76,0.3);border-radius:10px;padding:8px 14px;font-size:0.78rem;font-weight:600;cursor:pointer;transition:all 0.2s}
     .btn-sel-all:hover{border-color:var(--or);color:var(--or)}
     .spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(201,168,76,0.3);border-top-color:var(--or);border-radius:50%;animation:spin 0.7s linear infinite}
@@ -618,6 +620,30 @@ function PageHistorique({recueils,pendingCount,onChanged,showToast,isOnline}){
     setSelected(p=>{const n=new Set(p);n.delete(id);return n;});
     showToast('🗑️ Supprimé');onChanged();
   }
+  // Suppression d'un recueil entier (toutes les réponses d'une même date et activité)
+  async function delGroup(g){
+    const n=g.items.length;
+    const enLigne=g.items.filter(r=>!r.pending);
+    const locales=g.items.filter(r=>r.pending);
+    if(enLigne.length&&!isOnline){showToast('⚠️ Connexion requise pour supprimer');return;}
+    const titre=(g.activite?'« '+g.activite+' »':'sans activité')+' du '+new Date(g.date+'T12:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
+    const quoi=n>1?('Les '+n+' réponses'+(hasFiltres?' affichées avec les filtres actuels':' de ce recueil')+' seront effacées.'):('La réponse'+(hasFiltres?' affichée avec les filtres actuels':' de ce recueil')+' sera effacée.');
+    if(!confirm('Supprimer tout le recueil '+titre+' ?\n\n'+quoi+'\nCette suppression est définitive.'))return;
+    if(enLigne.length){
+      const ids=enLigne.map(r=>r.id);
+      const{data,error}=await sb.from('recueils').delete().in('id',ids).select('id');
+      if(error){showToast('❌ '+error.message);return;}
+      const nb=data?data.length:0;
+      if(nb<ids.length){showToast('⚠️ '+nb+' sur '+ids.length+' supprimés : droits Supabase à vérifier');onChanged();return;}
+    }
+    if(locales.length){
+      const lids=new Set(locales.map(r=>r.local_id));
+      lsSet('pending_recueils',(lsGet('pending_recueils')||[]).filter(p=>!lids.has(p.local_id)));
+    }
+    setSelected(p=>{const s=new Set(p);g.items.forEach(r=>s.delete(r.id));return s;});
+    showToast('🗑️ Recueil supprimé ('+n+' réponse'+(n>1?'s':'')+')');
+    onChanged();
+  }
   const selectedItems=filtered.filter(r=>selected.has(r.id));
   const canShareFiles=(()=>{try{return typeof navigator!=='undefined'&&navigator.canShare&&navigator.canShare({files:[new File([''],'t.csv',{type:'text/csv'})]});}catch(e){return false;}})();
   function buildCSVBlob(items){
@@ -686,6 +712,7 @@ function PageHistorique({recueils,pendingCount,onChanged,showToast,isOnline}){
           ),
           h('span',{className:'hist-group-count'},g.items.length+' pers.'),
           h('button',{className:'btn-export-sortie',onClick:e=>{e.stopPropagation();exportSortie(g);},title:canShareFiles?'Partager cette sortie':'Exporter cette sortie'},canShareFiles?'📤':'📥'),
+          h('button',{className:'btn-export-sortie btn-del-sortie',onClick:e=>{e.stopPropagation();delGroup(g);},title:'Supprimer tout ce recueil'},'🗑'),
           h('span',{className:'hist-group-toggle'},isOpen?'▲':'▼')
         ),
         isOpen&&h('div',null,g.items.map(r=>{
