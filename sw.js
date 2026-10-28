@@ -30,13 +30,11 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
 
-  // Supabase : toujours réseau (données dynamiques)
-  if (url.hostname.includes('supabase.co')) {
-    e.respondWith(fetch(e.request).catch(() => new Response(JSON.stringify([]), {
-      headers: {'Content-Type': 'application/json'}
-    })));
-    return;
-  }
+  // Supabase : toujours réseau, sans interception.
+  // Auparavant, une coupure réseau renvoyait une fausse réponse vide « réussie » :
+  // un enregistrement pouvait alors être perdu sans message d'erreur.
+  // Désormais l'application voit l'échec et garde la saisie sur la tablette.
+  if (url.hostname.includes('supabase.co')) return;
 
   // Page / index.html : RÉSEAU D'ABORD (pour toujours avoir la dernière version),
   // repli sur le cache uniquement si hors ligne.

@@ -198,6 +198,26 @@
     .pwd-toggle{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1rem;color:var(--gris)}
     .err-box{background:rgba(192,57,43,0.1);border:1px solid var(--rouge);border-radius:8px;padding:8px 12px;font-size:0.78rem;color:var(--rouge);margin-bottom:12px;text-align:center}
     .login-hint{text-align:center;margin-top:16px;font-size:0.68rem;color:var(--gris);opacity:0.7}
+    /* ── Recueils en plusieurs fois (onglet En cours) ── */
+    .nav-count{background:var(--or);color:var(--brun);font-size:0.58rem;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:3px}
+    .ec-card{background:var(--blanc);border:1px solid var(--creme-dark);border-radius:var(--radius);padding:14px 16px;margin-bottom:10px;cursor:pointer;box-shadow:var(--shadow-sm);transition:all 0.2s}
+    .ec-card:hover{border-color:var(--or)}
+    .ec-title{font-weight:700;font-size:0.95rem;color:var(--brun)}
+    .ec-sub{font-size:0.72rem;color:var(--gris);margin-top:3px}
+    .ec-progress{height:6px;background:var(--creme-dark);border-radius:6px;overflow:hidden;margin-top:10px}
+    .ec-progress>div{height:100%;background:var(--vert-light);border-radius:6px;transition:width 0.3s}
+    .ec-progress-txt{font-size:0.72rem;font-weight:600;color:var(--brun-light);margin-top:5px}
+    .ec-head{background:var(--brun);border-radius:var(--radius);padding:12px 16px 14px;margin-bottom:14px;box-shadow:var(--shadow)}
+    .ec-head .ec-title{color:var(--or)}
+    .ec-head .ec-sub{color:var(--or-light);opacity:0.85}
+    .ec-head .ec-progress{background:rgba(255,255,255,0.15)}
+    .ec-head .ec-progress-txt{color:var(--or-light)}
+    .btn-link{background:none;border:none;color:var(--or-light);font-size:0.75rem;font-weight:600;cursor:pointer;padding:2px 0}
+    .r-card.done-card{border:1px solid rgba(82,183,136,0.45);background:var(--blanc)}
+    .btn-valider{width:100%;margin-top:10px;background:var(--vert);color:white;border:none;border-radius:8px;padding:11px;font-size:0.85rem;font-weight:600;cursor:pointer}
+    .btn-valider:disabled{opacity:0.5;cursor:not-allowed}
+    .btn-cloturer{width:100%;background:transparent;border:1px solid var(--brun-light);color:var(--brun-light);border-radius:var(--radius);padding:12px;font-size:0.85rem;font-weight:600;cursor:pointer;margin-top:18px}
+    .btn-cloturer:disabled{opacity:0.5;cursor:not-allowed}
   </style>
 </head>
 <body>
@@ -371,7 +391,7 @@ function PageAccueil({residents,onStart,session}){
 }
 
 // ── PAGE RECUEIL ──────────────────────────────────────────────────
-function PageRecueil({session,residents,onSaved,showToast,isOnline}){
+function PageRecueil({session,residents,onSaved,showToast,isOnline,onPlusieursFois}){
   const isTransverse=session?.etab==='TRANSVERSE';
   const [mode,setMode]=useState('selection');
   const [selIds,setSelIds]=useState([]);
@@ -468,6 +488,10 @@ function PageRecueil({session,residents,onSaved,showToast,isOnline}){
     isTransverse&&h('div',{className:'info-box'},'🔀 ',h('span',null,'Mode transversal : sélectionnez des personnes de plusieurs établissements. Chaque recueil reste rattaché à son établissement.')),
     h('div',{className:'act-row'},h('label',{className:'slabel'},"Activité du jour"),h('input',{className:'inp',type:'text',placeholder:'Ex : Sortie au parc…',value:activite,onChange:e=>setActivite(e.target.value)})),
     h('div',{className:'act-row'},h('label',{className:'slabel'},'Date'),h('input',{className:'inp',type:'date',value:date,onChange:e=>setDate(e.target.value)})),
+    onPlusieursFois&&h('div',{className:'info-box',style:{alignItems:'center'}},'⏳ ',
+      h('span',{style:{flex:1}},'Beaucoup de personnes à voir ? Faites ce recueil en plusieurs fois.'),
+      h('button',{className:'btn-sync',onClick:()=>onPlusieursFois(activite,date)},'Ouvrir')
+    ),
     !isTransverse&&h('div',{className:'mode-toggle'},
       h('button',{className:'mode-btn'+(mode==='selection'?' active':''),onClick:()=>setMode('selection')},'☑️ Sélection manuelle'),
       h('button',{className:'mode-btn'+(mode==='appel'?' active':''),onClick:()=>setMode('appel')},'📋 Appel (cocher absents)')
@@ -688,6 +712,289 @@ function PageHistorique({recueils,pendingCount,onChanged,showToast,isOnline}){
   );
 }
 
+// ── RECUEILS EN PLUSIEURS FOIS (onglet En cours) ──────────────────
+// Un recueil « en cours » (table recueils_en_cours) fixe l'établissement, la date
+// et l'intitulé de l'activité. Chaque personne validée est enregistrée tout de suite
+// dans la table recueils, avec cette date et cet intitulé : elle apparaît donc dans
+// la même sortie de l'Historique, et les autres tablettes la voient comme « faite ».
+const C_VIDE={photo:false,interne:false,externe:false,ext_detail:''};
+function aujourdhui(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function fmtDateLong(d){return new Date(d+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});}
+function etabLabel(e){return e==='TRANSVERSE'?'🔀 Transversale':e;}
+function personnesConcernees(ec,residents){return ec.etab==='TRANSVERSE'?residents:residents.filter(r=>r.etab===ec.etab);}
+function memeRecueil(row,ec){return row.date===ec.date&&(row.activite||'')===ec.activite;}
+function versLigne(c){return{photo:c.photo?'oui':'non',interne:c.interne?'oui':'non',externe:c.externe?'oui':'non',ext_detail:c.externe&&(c.ext_detail||'').trim()?c.ext_detail.trim():null};}
+function msgErreur(error,status){return status===0?'Connexion impossible, réessayez':error.message;}
+const ROUGE_BOX={background:'rgba(192,57,43,0.08)',borderColor:'rgba(192,57,43,0.3)'};
+
+function ConsentToggles({c,onChange}){
+  return h('div',null,
+    [{key:'photo',label:'📷 Photo / vidéo'},{key:'interne',label:'🏠 Diffusion interne'},{key:'externe',label:'🌐 Diffusion externe'}]
+      .map(({key,label})=>h('div',{key,className:'toggle-line'},
+        h('span',{className:'toggle-lbl'},label),
+        h('div',{style:{display:'flex',alignItems:'center'}},
+          h(Toggle,{checked:!!c[key],onChange:e=>onChange({...c,[key]:e.target.checked})}),
+          h('span',{className:c[key]?'t-oui':'t-non'},c[key]?'Oui':'Non')
+        )
+      )),
+    c.externe&&h('input',{className:'ext-inp',type:'text',placeholder:'Préciser (ex: Facebook, LinkedIn…)',value:c.ext_detail||'',onChange:e=>onChange({...c,ext_detail:e.target.value})})
+  );
+}
+
+function Progression({faits,total}){
+  const pl=faits>1?'s':'';
+  return h('div',null,
+    total?h('div',{className:'ec-progress'},h('div',{style:{width:Math.round(100*faits/Math.max(total,1))+'%'}})):null,
+    h('div',{className:'ec-progress-txt'},total?(faits+' / '+total+' personnes recueillies'):(faits+' personne'+pl+' recueillie'+pl))
+  );
+}
+
+function PageEnCours(props){
+  const ec=props.openId?props.enCours.find(x=>x.id===props.openId):null;
+  return ec?h(EnCoursDetail,{...props,ec,key:ec.id}):h(EnCoursListe,props);
+}
+
+function EnCoursListe({session,residents,recueils,enCours,enCoursErr,prefill,clearPrefill,setOpenId,reloadEnCours,showToast,isOnline}){
+  const [showForm,setShowForm]=useState(!!prefill);
+  const [etab,setEtab]=useState(prefill?.etab||session?.etab||'');
+  const [activite,setActivite]=useState(prefill?.activite||'');
+  const [date,setDate]=useState(prefill?.date||aujourdhui());
+  const [saving,setSaving]=useState(false);
+  useEffect(()=>{if(prefill)clearPrefill();},[]);
+  const formOuvert=showForm||enCours.length===0;
+
+  async function ouvrir(){
+    const act=activite.trim();
+    if(!etab||!act||!date){showToast("⚠️ Renseignez l'établissement, l'activité et la date");return;}
+    if(!session?.pro){showToast("⚠️ Indiquez d'abord votre prénom dans l'Accueil");return;}
+    if(!isOnline){showToast('⚠️ Connexion requise pour ouvrir un recueil');return;}
+    setSaving(true);
+    const liste=await reloadEnCours();
+    const deja=(liste||enCours).find(x=>x.etab===etab&&x.date===date&&x.activite.trim().toLowerCase()===act.toLowerCase());
+    if(deja){setSaving(false);showToast('ℹ️ Ce recueil était déjà ouvert : vous le reprenez');setOpenId(deja.id);return;}
+    const{data,error,status}=await sb.from('recueils_en_cours').insert({etab,date,activite:act,pro:session.pro}).select().single();
+    if(error){setSaving(false);showToast('❌ '+msgErreur(error,status));return;}
+    await reloadEnCours();
+    setSaving(false);
+    setOpenId(data.id);
+    showToast('✅ Recueil ouvert sur toutes les tablettes');
+  }
+
+  return h('div',{className:'page'},
+    enCoursErr&&h('div',{className:'info-box',style:ROUGE_BOX},'⚠️ ',h('span',null,enCoursErr)),
+    enCours.length===0&&!enCoursErr&&h('div',{className:'info-box'},'ℹ️ ',h('span',null,"Pour un recueil qui demande plusieurs passages (repas de fête, séjour…). Chaque personne est enregistrée dès qu'elle est validée, et le recueil reste visible sur toutes les tablettes jusqu'à sa clôture.")),
+    enCoursErr?null:!formOuvert
+      ? h('button',{className:'btn-primary',style:{marginBottom:18},onClick:()=>setShowForm(true)},'➕ Ouvrir un nouveau recueil')
+      : h('div',{className:'add-form'},
+          h('h3',null,'Nouveau recueil en plusieurs fois'),
+          h('div',{className:'form-row'},h('label',{className:'slabel'},'Établissement'),
+            h('select',{className:'sel-inp',value:etab,onChange:e=>setEtab(e.target.value)},
+              h('option',{value:''},'Choisir…'),
+              ETABS.map(e=>h('option',{key:e,value:e},e+' — '+ETAB_LABELS[e])),
+              h('option',{value:'TRANSVERSE'},'Sortie transversale (plusieurs établissements)')
+            )
+          ),
+          h('div',{className:'form-row'},h('label',{className:'slabel'},'Activité'),h('input',{className:'inp',type:'text',placeholder:'Ex : Repas de Noël',value:activite,onChange:e=>setActivite(e.target.value)})),
+          h('div',{className:'form-row'},h('label',{className:'slabel'},"Date de l'activité"),h('input',{className:'inp',type:'date',value:date,onChange:e=>setDate(e.target.value)})),
+          !session?.pro&&h('div',{className:'info-box',style:ROUGE_BOX},'⚠️ ',h('span',null,"Indiquez d'abord votre prénom dans l'Accueil.")),
+          h('div',{style:{display:'flex',gap:14,alignItems:'center'}},
+            h('button',{className:'btn-add',onClick:ouvrir,disabled:saving||!isOnline||!session?.pro},saving?h('span',{className:'spinner'}):'Ouvrir le recueil'),
+            enCours.length>0&&h('button',{className:'btn-reset',style:{color:'var(--gris)'},onClick:()=>setShowForm(false)},'Annuler')
+          ),
+          !isOnline&&h('div',{style:{fontSize:'0.72rem',color:'var(--gris)',marginTop:8}},'Connexion requise pour ouvrir un recueil.')
+        ),
+    enCours.length>0&&h('span',{className:'slabel'},'Recueils en cours'),
+    enCours.map(ec=>{
+      const pers=personnesConcernees(ec,residents);
+      const ids=new Set(pers.map(r=>r.id));
+      const faits=new Set(recueils.filter(r=>memeRecueil(r,ec)&&ids.has(r.resident_id)).map(r=>r.resident_id)).size;
+      return h('div',{key:ec.id,className:'ec-card',onClick:()=>setOpenId(ec.id)},
+        h('div',{style:{display:'flex',alignItems:'flex-start',gap:10}},
+          h('div',{style:{flex:1}},
+            h('div',{className:'ec-title'},ec.activite),
+            h('div',{className:'ec-sub'},fmtDateLong(ec.date)+(ec.pro?' · ouvert par '+ec.pro:''))
+          ),
+          h('span',{className:'res-etab'},etabLabel(ec.etab))
+        ),
+        h(Progression,{faits,total:ec.etab==='TRANSVERSE'?null:pers.length}),
+        h('div',{style:{textAlign:'right',fontSize:'0.75rem',fontWeight:700,color:'var(--or)',marginTop:4}},'Reprendre →')
+      );
+    })
+  );
+}
+
+function EnCoursDetail({ec,session,residents,setOpenId,reloadEnCours,onChanged,showToast,isOnline}){
+  const [rows,setRows]=useState([]);
+  const [loading,setLoading]=useState(true);
+  const [filtre,setFiltre]=useState('afaire');
+  const [search,setSearch]=useState('');
+  const [openIds,setOpenIds]=useState(new Set());
+  const [drafts,setDrafts]=useState({});
+  const [busy,setBusy]=useState(null);
+  const isT=ec.etab==='TRANSVERSE';
+  const pers=personnesConcernees(ec,residents);
+
+  // Personnes déjà recueillies : base en ligne (ou dernier cache) + saisies hors ligne de cette tablette
+  const loadDone=useCallback(async()=>{
+    let online=null;
+    if(navigator.onLine){
+      const{data,error}=await sb.from('recueils').select('*,residents(prenom,initiale,etab)').eq('date',ec.date).eq('activite',ec.activite).order('created_at',{ascending:true});
+      if(!error&&data){online=data;lsSet('cache_encours_faits',{id:ec.id,rows:data});}
+    }
+    if(!online){
+      // Hors ligne : dernier état vu en ligne pour ce recueil, sinon l'historique en cache
+      const c=lsGet('cache_encours_faits');
+      online=c&&c.id===ec.id?c.rows:(lsGet('cache_recueils')||[]).filter(r=>memeRecueil(r,ec));
+    }
+    const pend=(lsGet('pending_recueils')||[]).filter(p=>!p.synced&&memeRecueil(p,ec)).map(p=>({...p,id:'pending_'+p.local_id,pending:true}));
+    setRows([...online,...pend]);
+    setLoading(false);
+  },[ec.id]);
+  useEffect(()=>{loadDone();},[loadDone]);
+  useEffect(()=>{if(isOnline)loadDone();},[isOnline]);
+
+  const doneMap={};rows.forEach(r=>{if(!doneMap[r.resident_id])doneMap[r.resident_id]=r;});
+  const faits=pers.filter(r=>doneMap[r.id]);
+  const aFaire=pers.filter(r=>!doneMap[r.id]);
+  const q=search.trim().toLowerCase();
+  const base=filtre==='afaire'?aFaire:filtre==='faits'?faits:pers;
+  const liste=base.filter(r=>!q||r.prenom.toLowerCase().includes(q)||(r.initiale||'').toLowerCase().startsWith(q));
+
+  function fermer(id){
+    setOpenIds(p=>{const n=new Set(p);n.delete(id);return n;});
+    setDrafts(d=>{const n={...d};delete n[id];return n;});
+  }
+  function toggleOpen(r){
+    if(openIds.has(r.id)){fermer(r.id);return;}
+    const row=doneMap[r.id];
+    setDrafts(d=>({...d,[r.id]:row?{photo:row.photo==='oui',interne:row.interne==='oui',externe:row.externe==='oui',ext_detail:row.ext_detail||''}:{...C_VIDE}}));
+    setOpenIds(p=>{const n=new Set(p);n.add(r.id);return n;});
+  }
+
+  async function valider(r){
+    if(!session?.pro){showToast("⚠️ Indiquez d'abord votre prénom dans l'Accueil");return;}
+    const ligne={resident_id:r.id,date:ec.date,activite:ec.activite,...versLigne(drafts[r.id]||C_VIDE),obs:null,pro:session.pro,etab:r.etab};
+    setBusy(r.id);
+    let horsLigne=!isOnline;
+    if(!horsLigne){
+      // Une autre tablette a peut-être recueilli cette personne entre-temps
+      const{data:existe}=await sb.from('recueils').select('id,pro').eq('resident_id',r.id).eq('date',ec.date).eq('activite',ec.activite).limit(1);
+      if(existe&&existe.length){
+        setBusy(null);fermer(r.id);
+        showToast('ℹ️ '+r.prenom+' : déjà enregistré'+(existe[0].pro?' par '+existe[0].pro:''));
+        await loadDone();return;
+      }
+      const{error,status}=await sb.from('recueils').insert(ligne);
+      if(error){
+        if(status===0) horsLigne=true; // réseau coupé : on garde sur la tablette
+        else{setBusy(null);showToast('❌ '+error.message);return;}
+      }
+    }
+    if(horsLigne) await idbPut('pending',{...ligne,synced:false,saved_at:new Date().toISOString(),residents:{prenom:r.prenom,initiale:r.initiale}});
+    setBusy(null);fermer(r.id);
+    showToast(horsLigne?('💾 '+r.prenom+' : gardé sur la tablette, envoyé à la reconnexion'):('✅ '+r.prenom+' : enregistré'));
+    await loadDone();
+    onChanged();
+  }
+
+  async function corriger(r){
+    const row=doneMap[r.id];const c=drafts[r.id];
+    if(!row||!c)return;
+    const champs={...versLigne(c),pro:session?.pro||row.pro};
+    setBusy(r.id);
+    if(row.pending){
+      lsSet('pending_recueils',(lsGet('pending_recueils')||[]).map(p=>p.local_id===row.local_id?{...p,...champs}:p));
+    } else {
+      if(!isOnline){setBusy(null);showToast('⚠️ Connexion requise pour corriger');return;}
+      const{data,error,status}=await sb.from('recueils').update(champs).eq('id',row.id).select('id');
+      if(error){setBusy(null);showToast('❌ '+msgErreur(error,status));return;}
+      if(!data||!data.length){setBusy(null);showToast("❌ Correction refusée par la base (droits Supabase à vérifier)");return;}
+    }
+    setBusy(null);fermer(r.id);
+    showToast('✅ Correction enregistrée');
+    await loadDone();
+    onChanged();
+  }
+
+  async function cloturer(){
+    if(!isOnline){showToast('⚠️ Connexion requise pour clôturer');return;}
+    const reste=aFaire.length;
+    const msg=(!isT&&reste>0)
+      ?('Il reste '+reste+' personne'+(reste>1?'s':'')+' sans recueil. Clôturer quand même ?\n\nLes recueils déjà faits restent dans l\'Historique.')
+      :('Clôturer ce recueil ?\n\nLes recueils faits restent dans l\'Historique.');
+    if(!confirm(msg))return;
+    setBusy('cloture');
+    const{data,error,status}=await sb.from('recueils_en_cours').update({statut:'termine',cloture_at:new Date().toISOString(),cloture_par:session?.pro||null}).eq('id',ec.id).select('id');
+    setBusy(null);
+    if(error){showToast('❌ '+msgErreur(error,status));return;}
+    if(!data||!data.length){showToast('❌ Clôture refusée par la base');return;}
+    showToast('✅ Recueil clôturé, il reste consultable dans l\'Historique');
+    setOpenId(null);
+    reloadEnCours();
+  }
+
+  function carte(r){
+    const row=doneMap[r.id];
+    const ouvert=openIds.has(r.id);
+    const c=drafts[r.id]||C_VIDE;
+    const ini=(r.prenom?.[0]||'')+(r.initiale?.[0]||'');
+    return h('div',{key:r.id,className:'r-card '+(row?'done-card':(ouvert?'sel-card':'unsel-card'))},
+      h('div',{className:'r-row',onClick:()=>toggleOpen(r)},
+        h('div',{className:'r-avatar'+(row?' pres':'')},row?'✓':ini),
+        h('div',{style:{flex:1,minWidth:0}},
+          h('div',{className:'r-name'},r.prenom+' ',h('strong',null,r.initiale+'.')),
+          row&&!ouvert&&h('div',{className:'badges-row'},
+            h('span',{className:row.photo==='oui'?'b-oui':'b-non'},'📷 '+(row.photo==='oui'?'Oui':'Non')),
+            h('span',{className:row.interne==='oui'?'b-oui':'b-non'},'🏠 '+(row.interne==='oui'?'Oui':'Non')),
+            h('span',{className:row.externe==='oui'?'b-oui':'b-non'},'🌐 '+(row.externe==='oui'?'Oui':'Non')),
+            row.ext_detail&&h('span',{className:'b-etab'},row.ext_detail),
+            row.pending&&h('span',{className:'b-pending'},'⏳ Hors ligne'),
+            row.pro&&h('span',{className:'b-etab'},'👤 '+row.pro)
+          )
+        ),
+        h('span',{style:{fontSize:'0.7rem',fontWeight:600,color:row?'var(--vert)':'var(--or)',flexShrink:0}},ouvert?'▲ Fermer':(row?'Corriger':'À recueillir ▼'))
+      ),
+      ouvert&&h('div',{className:'consent-zone'+(row?' pres-zone':'')},
+        h(ConsentToggles,{c,onChange:nc=>setDrafts(d=>({...d,[r.id]:nc}))}),
+        h('button',{className:'btn-valider',disabled:busy===r.id||!session?.pro,onClick:()=>row?corriger(r):valider(r)},
+          busy===r.id?h('span',{className:'spinner'}):(row?'Enregistrer la correction':'✓ Valider le recueil de '+r.prenom))
+      )
+    );
+  }
+
+  return h('div',{className:'page'},
+    h('div',{className:'ec-head'},
+      h('div',{style:{display:'flex',alignItems:'center',marginBottom:10}},
+        h('button',{className:'btn-link',onClick:()=>setOpenId(null)},'← Tous les recueils en cours'),
+        h('button',{className:'btn-link',style:{marginLeft:'auto'},onClick:()=>{setLoading(true);loadDone();reloadEnCours();}},'↻ Actualiser')
+      ),
+      h('div',{style:{display:'flex',alignItems:'flex-start',gap:10}},
+        h('div',{style:{flex:1}},h('div',{className:'ec-title'},ec.activite),h('div',{className:'ec-sub'},fmtDateLong(ec.date)+(ec.pro?' · ouvert par '+ec.pro:''))),
+        h('span',{className:'badge'+(isT?' badge-transverse':'')},etabLabel(ec.etab))
+      ),
+      h(Progression,{faits:faits.length,total:isT?null:pers.length})
+    ),
+    !isOnline&&h('div',{className:'info-box'},'📴 ',h('span',null,"Hors ligne : les personnes validées sont gardées sur cette tablette et envoyées à la reconnexion. Les autres tablettes ne les verront qu'à ce moment-là.")),
+    !session?.pro&&h('div',{className:'info-box',style:ROUGE_BOX},'⚠️ ',h('span',null,"Indiquez votre prénom dans l'Accueil pour pouvoir valider des recueils.")),
+    h('div',{className:'chips'},
+      [['afaire','À faire',aFaire.length],['faits','Faits',faits.length],['tous','Tous',pers.length]].map(([k,l,n])=>
+        h('span',{key:k,className:'chip'+(filtre===k?' active':''),onClick:()=>setFiltre(k)},l,h('span',{className:'count-pill'},n)))
+    ),
+    pers.length>8&&h('div',{className:'search-wrap'},h('span',{className:'search-ico'},'🔍'),h('input',{type:'text',placeholder:'Rechercher une personne…',value:search,onChange:e=>setSearch(e.target.value)})),
+    loading&&h('div',{style:{textAlign:'center',padding:24}},h('span',{className:'spinner'})),
+    !loading&&liste.length===0&&h('div',{className:'empty'},
+      h('div',{className:'ico'},filtre==='afaire'&&aFaire.length===0&&pers.length>0?'✅':'👤'),
+      h('p',null,filtre==='afaire'&&aFaire.length===0&&pers.length>0&&!q?'Tout le monde a été recueilli. Vous pouvez clôturer ce recueil.':'Aucune personne')
+    ),
+    !loading&&(isT
+      ? ETABS.filter(e=>liste.some(r=>r.etab===e)).map(e=>h('div',{key:e},
+          h('div',{className:'group-hdr'},ETAB_ICONS[e]+' '+ETAB_LABELS[e]),
+          liste.filter(r=>r.etab===e).map(carte)))
+      : liste.map(carte)),
+    h('button',{className:'btn-cloturer',onClick:cloturer,disabled:busy==='cloture'||!isOnline},busy==='cloture'?h('span',{className:'spinner'}):'Clôturer ce recueil')
+  );
+}
+
 // ── APP PRINCIPALE ────────────────────────────────────────────────
 function App(){
   const [auth,setAuth]=useState(sessionStorage.getItem('lpb_auth')==='1');
@@ -702,8 +1009,32 @@ function App(){
   const [syncing,setSyncing]=useState(false);
   const [conflicts,setConflicts]=useState([]);
   const [toast,setToast]=useState(null);
+  const [enCours,setEnCours]=useState(()=>lsGet('cache_en_cours')||[]);
+  const [enCoursErr,setEnCoursErr]=useState(null);
+  const [ecPrefill,setEcPrefill]=useState(null);
+  // Recueil en cours ouvert sur cette tablette : on le retrouve en revenant sur l'onglet
+  const [ecOpenId,setEcOpenIdState]=useState(()=>lsGet('lpb_encours_ouvert'));
+  const setEcOpenId=useCallback(id=>{setEcOpenIdState(id);if(id)lsSet('lpb_encours_ouvert',id);else lsRemove('lpb_encours_ouvert');},[]);
 
   function showToast(msg){setToast(msg);setTimeout(()=>setToast(null),3200);}
+
+  // ── Recueils en cours (partagés entre tablettes) ────────────────
+  const loadEnCours=useCallback(async()=>{
+    if(!navigator.onLine){const c=lsGet('cache_en_cours')||[];setEnCours(c);return c;}
+    const{data,error,status}=await sb.from('recueils_en_cours').select('*').eq('statut','en_cours').order('date',{ascending:true}).order('created_at',{ascending:true});
+    if(error&&status===0){const c=lsGet('cache_en_cours')||[];setEnCours(c);return c;} // réseau injoignable : dernier état connu
+    if(error){
+      const manque=['PGRST205','42P01'].includes(error.code)||/recueils_en_cours/.test(error.message||'');
+      setEnCoursErr(manque?"Le recueil en plusieurs fois n'est pas encore activé : la table recueils_en_cours doit être créée dans Supabase.":('Recueils en cours indisponibles : '+error.message));
+      return null;
+    }
+    setEnCoursErr(null);
+    const list=data||[];
+    setEnCours(list);lsSet('cache_en_cours',list);
+    // Recueil ouvert sur cette tablette mais clôturé ailleurs : on revient à la liste
+    setEcOpenIdState(prev=>{if(prev&&!list.some(x=>x.id===prev)){lsRemove('lpb_encours_ouvert');return null;}return prev;});
+    return list;
+  },[]);
 
   // ── Chargement résidents : réseau + cache local ──────────────────
   const loadRes=useCallback(async()=>{
@@ -713,6 +1044,8 @@ function App(){
         setResidents(data);
         await idbClear('residents');
         await idbPutAll('residents',data);
+      } else {
+        setResidents(await idbGetAll('residents')); // réseau injoignable : liste en cache
       }
     } else {
       const cached=await idbGetAll('residents');
@@ -729,6 +1062,8 @@ function App(){
         online=data;
         await idbClear('recueils_cache');
         await idbPutAll('recueils_cache',data);
+      } else {
+        online=await idbGetAll('recueils_cache'); // réseau injoignable : historique en cache
       }
     } else {
       online=await idbGetAll('recueils_cache');
@@ -746,21 +1081,24 @@ function App(){
     if(!toSync.length) return;
     setSyncing(true);
     const newConflicts=[];
+    let echecs=0;
     for(const item of toSync){
       // Vérifier si un recueil existe déjà pour cette personne/date/activité
-      const{data:existing}=await sb.from('recueils')
+      const{data:existing,error:errCheck}=await sb.from('recueils')
         .select('id')
         .eq('resident_id',item.resident_id)
         .eq('date',item.date)
         .eq('activite',item.activite||'')
-        .maybeSingle();
-      if(existing){
+        .limit(1);
+      if(errCheck){echecs++;continue;} // base injoignable : la saisie reste sur la tablette
+      if(existing&&existing.length){
         // Conflit détecté
-        newConflicts.push({local:item,remote:existing});
+        newConflicts.push({local:item,remote:existing[0]});
       } else {
-        // Pas de conflit : on envoie
+        // Pas de conflit : on envoie, et on ne retire la saisie locale qu'une fois l'envoi confirmé
         const{local_id,synced,saved_at,residents:_r,...row}=item;
-        await sb.from('recueils').insert(row);
+        const{error}=await sb.from('recueils').insert(row);
+        if(error){echecs++;continue;}
         await idbDelete('pending',item.local_id);
       }
     }
@@ -768,20 +1106,22 @@ function App(){
     if(newConflicts.length>0){
       setConflicts(newConflicts);
     } else {
-      showToast('✅ Synchronisation terminée');
+      showToast(echecs?('⚠️ '+echecs+' recueil'+(echecs>1?'s':'')+' non envoyé'+(echecs>1?'s':'')+', gardé'+(echecs>1?'s':'')+' sur la tablette'):'✅ Synchronisation terminée');
       loadRec();
     }
   },[loadRec]);
 
   // ── Résolution des conflits ─────────────────────────────────────
   async function resolveConflict(action,conflict){
+    let garde=false;
     if(action==='keep'){
       // Envoyer quand même
       const{local_id,synced,saved_at,residents:_r,...row}=conflict.local;
-      await sb.from('recueils').insert(row);
+      const{error}=await sb.from('recueils').insert(row);
+      if(error){garde=true;showToast('⚠️ Envoi impossible : le recueil reste sur la tablette');}
     }
-    // Dans les deux cas, on supprime le pending local
-    await idbDelete('pending',conflict.local.local_id);
+    // Dans les deux cas, on supprime le pending local (sauf si l'envoi a échoué)
+    if(!garde) await idbDelete('pending',conflict.local.local_id);
     const remaining=conflicts.slice(1);
     setConflicts(remaining);
     if(remaining.length===0){
@@ -795,20 +1135,20 @@ function App(){
     const goOnline=()=>{
       setIsOnline(true);
       showToast('📶 Connexion rétablie — synchronisation…');
-      setTimeout(()=>syncPending(),1000);
+      setTimeout(()=>{syncPending();loadEnCours();},1000);
     };
     const goOffline=()=>{setIsOnline(false);showToast('📴 Mode hors ligne activé');};
     window.addEventListener('online',goOnline);
     window.addEventListener('offline',goOffline);
     return()=>{window.removeEventListener('online',goOnline);window.removeEventListener('offline',goOffline);};
-  },[syncPending]);
+  },[syncPending,loadEnCours]);
 
-  useEffect(()=>{loadRes();loadRec();},[]);
+  useEffect(()=>{loadRes();loadRec();loadEnCours();},[]);
 
   if(!auth) return h(Login,{onSuccess:()=>setAuth(true)});
 
   const residentsEtab=session?(session.etab==='TRANSVERSE'?residents:residents.filter(r=>r.etab===session.etab)):[];
-  const TABS=[{id:'accueil',icon:'🏠',label:'Accueil'},{id:'recueil',icon:'📋',label:'Recueil'},{id:'residents',icon:'👥',label:'Personnes'},{id:'historique',icon:'📊',label:'Historique'}];
+  const TABS=[{id:'accueil',icon:'🏠',label:'Accueil'},{id:'recueil',icon:'📋',label:'Recueil'},{id:'encours',icon:'⏳',label:'En cours',count:enCours.length},{id:'residents',icon:'👥',label:'Personnes'},{id:'historique',icon:'📊',label:'Historique'}];
 
   return h('div',null,
     // Header avec indicateur de connexion
@@ -831,10 +1171,13 @@ function App(){
     // Résolution de conflits
     conflicts.length>0&&h(ConflictResolver,{conflicts,onResolve:resolveConflict}),
     // Nav
-    h('div',{className:'nav-bar'},TABS.map(t=>h('button',{key:t.id,className:'nav-tab'+(page===t.id?' active':''),onClick:()=>setPage(t.id)},h('span',{className:'nav-icon'},t.icon),t.label))),
+    h('div',{className:'nav-bar'},TABS.map(t=>h('button',{key:t.id,className:'nav-tab'+(page===t.id?' active':''),onClick:()=>setPage(t.id)},h('span',{className:'nav-icon'},t.icon),t.label,t.count>0&&h('span',{className:'nav-count'},t.count)))),
     // Pages
     page==='accueil'&&h(PageAccueil,{residents,onStart:(e,p)=>{const s={etab:e,pro:p};setSession(s);localStorage.setItem('lpb_session',JSON.stringify(s));setPage('recueil');},session}),
-    page==='recueil'&&h(PageRecueil,{session,residents:residentsEtab,onSaved:()=>{loadRec();},showToast,isOnline}),
+    page==='recueil'&&h(PageRecueil,{session,residents:residentsEtab,onSaved:()=>{loadRec();},showToast,isOnline,
+      onPlusieursFois:(activite,date)=>{setEcPrefill({etab:session?.etab||'',activite,date});setEcOpenId(null);setPage('encours');}}),
+    page==='encours'&&h(PageEnCours,{session,residents,recueils,enCours,enCoursErr,openId:ecOpenId,setOpenId:setEcOpenId,
+      prefill:ecPrefill,clearPrefill:()=>setEcPrefill(null),reloadEnCours:loadEnCours,onChanged:loadRec,showToast,isOnline}),
     page==='residents'&&h(PageResidents,{residents,onChanged:()=>{loadRes();loadRec();},showToast,isOnline}),
     page==='historique'&&h(PageHistorique,{recueils,pendingCount:pending.length,onChanged:loadRec,showToast,isOnline}),
     toast&&h('div',{className:'toast'},toast)
