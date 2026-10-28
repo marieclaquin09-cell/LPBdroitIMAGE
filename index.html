@@ -151,6 +151,8 @@
     .hist-item:first-child{border-top:none}
     .hist-checkbox{width:20px;height:20px;border-radius:6px;border:2px solid var(--creme-dark);display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;transition:all 0.15s;background:var(--creme)}
     .hist-checkbox.chk{background:var(--or);border-color:var(--or);color:var(--brun);font-size:0.7rem}
+    .hist-checkbox.grp{width:26px;height:26px;border-radius:7px;font-size:0.85rem;font-weight:700}
+    .hist-checkbox.part{background:var(--or-light);border-color:var(--or);color:var(--brun)}
     .hist-item-info{flex:1}
     .hist-name{font-weight:600;font-size:0.88rem;color:var(--brun)}
     .badges-row{display:flex;gap:5px;flex-wrap:wrap;margin-top:4px}
@@ -220,6 +222,9 @@
     .btn-valider:disabled{opacity:0.5;cursor:not-allowed}
     .btn-cloturer{width:100%;background:transparent;border:1px solid var(--brun-light);color:var(--brun-light);border-radius:var(--radius);padding:12px;font-size:0.85rem;font-weight:600;cursor:pointer;margin-top:18px}
     .btn-cloturer:disabled{opacity:0.5;cursor:not-allowed}
+    .r-card.abs-card{border:1px dashed var(--creme-dark);background:var(--creme)}
+    .btn-absent{width:100%;margin-top:8px;background:transparent;border:1px dashed var(--gris);color:var(--gris);border-radius:8px;padding:9px;font-size:0.78rem;font-weight:600;cursor:pointer}
+    .btn-absent:disabled{opacity:0.5;cursor:not-allowed}
   </style>
 </head>
 <body>
@@ -612,6 +617,12 @@ function PageHistorique({recueils,pendingCount,onChanged,showToast,isOnline}){
   function toggleSelectAll(){if(allSelected){setSelected(p=>{const n=new Set(p);allFilteredIds.forEach(id=>n.delete(id));return n;});}else{setSelected(p=>{const n=new Set(p);allFilteredIds.forEach(id=>n.add(id));return n;});}}
   function toggleItem(id){setSelected(p=>{const n=new Set(p);n.has(id)?n.delete(id):n.add(id);return n;});}
   function toggleGroup(key){setExpanded(p=>{const n=new Set(p);n.has(key)?n.delete(key):n.add(key);return n;});}
+  // Cocher / décocher un recueil entier (toutes les personnes de la sortie) pour l'export
+  function toggleGroupSel(g){
+    const ids=g.items.map(r=>r.id);
+    const tous=ids.every(id=>selected.has(id));
+    setSelected(p=>{const n=new Set(p);ids.forEach(id=>tous?n.delete(id):n.add(id));return n;});
+  }
   async function delItem(id){
     if(!confirm('Supprimer cet enregistrement ?'))return;
     if(!isOnline){showToast('⚠️ Connexion requise pour supprimer');return;}
@@ -706,6 +717,11 @@ function PageHistorique({recueils,pendingCount,onChanged,showToast,isOnline}){
       const isOpen=expanded.has(g.key);
       return h('div',{key:g.key,className:'hist-group'},
         h('div',{className:'hist-group-header',onClick:()=>toggleGroup(g.key)},
+          (()=>{
+            const nSel=g.items.filter(r=>selected.has(r.id)).length;
+            const tous=nSel===g.items.length;
+            return h('div',{className:'hist-checkbox grp'+(tous?' chk':nSel?' part':''),onClick:e=>{e.stopPropagation();toggleGroupSel(g);},title:tous?'Décocher ce recueil':'Cocher ce recueil pour l\'exporter'},tous?'✓':nSel?'–':'');
+          })(),
           h('div',{style:{flex:1}},
             h('div',{className:'hist-group-title'},'📅 '+new Date(g.date+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'})),
             g.activite&&h('div',{className:'hist-group-sub'},'🎯 '+g.activite)
@@ -768,13 +784,16 @@ function ConsentToggles({c,onChange}){
   );
 }
 
-function Progression({faits,total}){
+function Progression({faits,total,absents}){
   const pl=faits>1?'s':'';
+  const txtAbs=absents?(' · '+absents+' personne'+(absents>1?'s':'')+' absente'+(absents>1?'s':'')+', non comptée'+(absents>1?'s':'')):'';
   return h('div',null,
     total?h('div',{className:'ec-progress'},h('div',{style:{width:Math.round(100*faits/Math.max(total,1))+'%'}})):null,
-    h('div',{className:'ec-progress-txt'},total?(faits+' / '+total+' personnes recueillies'):(faits+' personne'+pl+' recueillie'+pl))
+    h('div',{className:'ec-progress-txt'},(total?(faits+' / '+total+' personnes recueillies'):(faits+' personne'+pl+' recueillie'+pl))+txtAbs)
   );
 }
+// Personnes marquées absentes pour ce recueil (hospitalisation, séjour…) et pas encore recueillies
+function absentsDe(ec,pers,estFait){const s=new Set((ec.absents||[]).map(String));return pers.filter(r=>!estFait(r)&&s.has(String(r.id)));}
 
 function PageEnCours(props){
   const ec=props.openId?props.enCours.find(x=>x.id===props.openId):null;
@@ -834,7 +853,9 @@ function EnCoursListe({session,residents,recueils,enCours,enCoursErr,prefill,cle
     enCours.map(ec=>{
       const pers=personnesConcernees(ec,residents);
       const ids=new Set(pers.map(r=>r.id));
-      const faits=new Set(recueils.filter(r=>memeRecueil(r,ec)&&ids.has(r.resident_id)).map(r=>r.resident_id)).size;
+      const faitsIds=new Set(recueils.filter(r=>memeRecueil(r,ec)&&ids.has(r.resident_id)).map(r=>r.resident_id));
+      const faits=faitsIds.size;
+      const nbAbs=absentsDe(ec,pers,r=>faitsIds.has(r.id)).length;
       return h('div',{key:ec.id,className:'ec-card',onClick:()=>setOpenId(ec.id)},
         h('div',{style:{display:'flex',alignItems:'flex-start',gap:10}},
           h('div',{style:{flex:1}},
@@ -843,14 +864,14 @@ function EnCoursListe({session,residents,recueils,enCours,enCoursErr,prefill,cle
           ),
           h('span',{className:'res-etab'},etabLabel(ec.etab))
         ),
-        h(Progression,{faits,total:ec.etab==='TRANSVERSE'?null:pers.length}),
+        h(Progression,{faits,total:ec.etab==='TRANSVERSE'?null:pers.length-nbAbs,absents:nbAbs}),
         h('div',{style:{textAlign:'right',fontSize:'0.75rem',fontWeight:700,color:'var(--or)',marginTop:4}},'Reprendre →')
       );
     })
   );
 }
 
-function EnCoursDetail({ec,session,residents,setOpenId,reloadEnCours,onChanged,showToast,isOnline}){
+function EnCoursDetail({ec,session,residents,absentsOk,setOpenId,reloadEnCours,onChanged,showToast,isOnline}){
   const [rows,setRows]=useState([]);
   const [loading,setLoading]=useState(true);
   const [filtre,setFiltre]=useState('afaire');
@@ -882,9 +903,11 @@ function EnCoursDetail({ec,session,residents,setOpenId,reloadEnCours,onChanged,s
 
   const doneMap={};rows.forEach(r=>{if(!doneMap[r.resident_id])doneMap[r.resident_id]=r;});
   const faits=pers.filter(r=>doneMap[r.id]);
-  const aFaire=pers.filter(r=>!doneMap[r.id]);
+  const absents=absentsDe(ec,pers,r=>doneMap[r.id]);
+  const absSet=new Set(absents.map(r=>r.id));
+  const aFaire=pers.filter(r=>!doneMap[r.id]&&!absSet.has(r.id));
   const q=search.trim().toLowerCase();
-  const base=filtre==='afaire'?aFaire:filtre==='faits'?faits:pers;
+  const base=filtre==='afaire'?aFaire:filtre==='faits'?faits:filtre==='absents'?absents:pers;
   const liste=base.filter(r=>!q||r.prenom.toLowerCase().includes(q)||(r.initiale||'').toLowerCase().startsWith(q));
 
   function fermer(id){
@@ -943,6 +966,28 @@ function EnCoursDetail({ec,session,residents,setOpenId,reloadEnCours,onChanged,s
     onChanged();
   }
 
+  // Absence (hospitalisation, séjour…) : la personne ne compte plus dans le total de ce recueil.
+  // Aucun motif n'est enregistré, pour ne pas stocker d'information de santé.
+  async function marquerAbsent(r){
+    if(absentsOk===false){showToast("⚠️ Fonction pas encore activée : le script Supabase des absences doit être exécuté");return;}
+    if(!isOnline){showToast('⚠️ Connexion requise pour indiquer une absence');return;}
+    setBusy(r.id);
+    const{error,status}=await sb.from('recueils_en_cours_absents').insert({en_cours_id:ec.id,resident_id:String(r.id),pro:session?.pro||null});
+    if(error&&error.code!=='23505'){setBusy(null);showToast('❌ '+msgErreur(error,status));return;} // 23505 : déjà marquée absente ailleurs
+    await reloadEnCours();
+    setBusy(null);fermer(r.id);
+    showToast('🚫 '+r.prenom+' : absent, ne compte plus dans le total');
+  }
+  async function annulerAbsence(r){
+    if(!isOnline){showToast('⚠️ Connexion requise pour modifier une absence');return;}
+    setBusy(r.id);
+    const{error,status}=await sb.from('recueils_en_cours_absents').delete().eq('en_cours_id',ec.id).eq('resident_id',String(r.id));
+    if(error){setBusy(null);showToast('❌ '+msgErreur(error,status));return;}
+    await reloadEnCours();
+    setBusy(null);fermer(r.id);
+    showToast('↩️ '+r.prenom+' : remis dans « À faire »');
+  }
+
   async function cloturer(){
     if(!isOnline){showToast('⚠️ Connexion requise pour clôturer');return;}
     const reste=aFaire.length;
@@ -965,6 +1010,17 @@ function EnCoursDetail({ec,session,residents,setOpenId,reloadEnCours,onChanged,s
     const ouvert=openIds.has(r.id);
     const c=drafts[r.id]||C_VIDE;
     const ini=(r.prenom?.[0]||'')+(r.initiale?.[0]||'');
+    if(absSet.has(r.id)) return h('div',{key:r.id,className:'r-card abs-card'},
+      h('div',{className:'r-row',onClick:()=>toggleOpen(r)},
+        h('div',{className:'r-avatar'},ini),
+        h('div',{style:{flex:1,minWidth:0}},h('div',{className:'r-name',style:{color:'var(--gris)'}},r.prenom+' ',h('strong',null,r.initiale+'.'))),
+        h('span',{className:'status-badge status-abs',style:{flexShrink:0}},ouvert?'▲ Fermer':'Absent')
+      ),
+      ouvert&&h('div',{className:'consent-zone'},
+        h('div',{style:{fontSize:'0.78rem',color:'var(--gris)'}},"Absent pour ce recueil : ne compte pas dans le total."),
+        h('button',{className:'btn-absent',disabled:busy===r.id,onClick:()=>annulerAbsence(r)},busy===r.id?h('span',{className:'spinner'}):'Remettre dans « À faire »')
+      )
+    );
     return h('div',{key:r.id,className:'r-card '+(row?'done-card':(ouvert?'sel-card':'unsel-card'))},
       h('div',{className:'r-row',onClick:()=>toggleOpen(r)},
         h('div',{className:'r-avatar'+(row?' pres':'')},row?'✓':ini),
@@ -984,7 +1040,8 @@ function EnCoursDetail({ec,session,residents,setOpenId,reloadEnCours,onChanged,s
       ouvert&&h('div',{className:'consent-zone'+(row?' pres-zone':'')},
         h(ConsentToggles,{c,onChange:nc=>setDrafts(d=>({...d,[r.id]:nc}))}),
         h('button',{className:'btn-valider',disabled:busy===r.id||!session?.pro,onClick:()=>row?corriger(r):valider(r)},
-          busy===r.id?h('span',{className:'spinner'}):(row?'Enregistrer la correction':'✓ Valider le recueil de '+r.prenom))
+          busy===r.id?h('span',{className:'spinner'}):(row?'Enregistrer la correction':'✓ Valider le recueil de '+r.prenom)),
+        !row&&h('button',{className:'btn-absent',disabled:busy===r.id,onClick:()=>marquerAbsent(r)},'Absent (hospitalisation, séjour…) : ne pas compter')
       )
     );
   }
@@ -999,19 +1056,22 @@ function EnCoursDetail({ec,session,residents,setOpenId,reloadEnCours,onChanged,s
         h('div',{style:{flex:1}},h('div',{className:'ec-title'},ec.activite),h('div',{className:'ec-sub'},fmtDateLong(ec.date)+(ec.pro?' · ouvert par '+ec.pro:''))),
         h('span',{className:'badge'+(isT?' badge-transverse':'')},etabLabel(ec.etab))
       ),
-      h(Progression,{faits:faits.length,total:isT?null:pers.length})
+      h(Progression,{faits:faits.length,total:isT?null:pers.length-absents.length,absents:absents.length})
     ),
     !isOnline&&h('div',{className:'info-box'},'📴 ',h('span',null,"Hors ligne : les personnes validées sont gardées sur cette tablette et envoyées à la reconnexion. Les autres tablettes ne les verront qu'à ce moment-là.")),
     !session?.pro&&h('div',{className:'info-box',style:ROUGE_BOX},'⚠️ ',h('span',null,"Indiquez votre prénom dans l'Accueil pour pouvoir valider des recueils.")),
     h('div',{className:'chips'},
-      [['afaire','À faire',aFaire.length],['faits','Faits',faits.length],['tous','Tous',pers.length]].map(([k,l,n])=>
-        h('span',{key:k,className:'chip'+(filtre===k?' active':''),onClick:()=>setFiltre(k)},l,h('span',{className:'count-pill'},n)))
+      [['afaire','À faire',aFaire.length],['faits','Faits',faits.length],['absents','Absents',absents.length],['tous','Tous',pers.length]]
+        .filter(([k,,n])=>k!=='absents'||n>0||filtre==='absents')
+        .map(([k,l,n])=>h('span',{key:k,className:'chip'+(filtre===k?' active':''),onClick:()=>setFiltre(k)},l,h('span',{className:'count-pill'},n)))
     ),
     pers.length>8&&h('div',{className:'search-wrap'},h('span',{className:'search-ico'},'🔍'),h('input',{type:'text',placeholder:'Rechercher une personne…',value:search,onChange:e=>setSearch(e.target.value)})),
     loading&&h('div',{style:{textAlign:'center',padding:24}},h('span',{className:'spinner'})),
     !loading&&liste.length===0&&h('div',{className:'empty'},
       h('div',{className:'ico'},filtre==='afaire'&&aFaire.length===0&&pers.length>0?'✅':'👤'),
-      h('p',null,filtre==='afaire'&&aFaire.length===0&&pers.length>0&&!q?'Tout le monde a été recueilli. Vous pouvez clôturer ce recueil.':'Aucune personne')
+      h('p',null,filtre==='afaire'&&aFaire.length===0&&pers.length>0&&!q
+        ?(absents.length?'Toutes les personnes présentes ont été recueillies. Vous pouvez clôturer ce recueil.':'Tout le monde a été recueilli. Vous pouvez clôturer ce recueil.')
+        :'Aucune personne')
     ),
     !loading&&(isT
       ? ETABS.filter(e=>liste.some(r=>r.etab===e)).map(e=>h('div',{key:e},
@@ -1039,6 +1099,7 @@ function App(){
   const [enCours,setEnCours]=useState(()=>lsGet('cache_en_cours')||[]);
   const [enCoursErr,setEnCoursErr]=useState(null);
   const [ecPrefill,setEcPrefill]=useState(null);
+  const [absentsOk,setAbsentsOk]=useState(null);
   // Recueil en cours ouvert sur cette tablette : on le retrouve en revenant sur l'onglet
   const [ecOpenId,setEcOpenIdState]=useState(()=>lsGet('lpb_encours_ouvert'));
   const setEcOpenId=useCallback(id=>{setEcOpenIdState(id);if(id)lsSet('lpb_encours_ouvert',id);else lsRemove('lpb_encours_ouvert');},[]);
@@ -1057,6 +1118,18 @@ function App(){
     }
     setEnCoursErr(null);
     const list=data||[];
+    // Absences déclarées pour ces recueils (table recueils_en_cours_absents)
+    if(list.length){
+      const{data:abs,error:ea,status:sa}=await sb.from('recueils_en_cours_absents').select('en_cours_id,resident_id').in('en_cours_id',list.map(x=>x.id));
+      if(ea){
+        if(sa!==0)setAbsentsOk(false); // table pas encore créée
+        const prev=lsGet('cache_en_cours')||[];
+        list.forEach(x=>{x.absents=(prev.find(y=>y.id===x.id)||{}).absents||[];});
+      } else {
+        setAbsentsOk(true);
+        list.forEach(x=>{x.absents=(abs||[]).filter(a=>a.en_cours_id===x.id).map(a=>String(a.resident_id));});
+      }
+    }
     setEnCours(list);lsSet('cache_en_cours',list);
     // Recueil ouvert sur cette tablette mais clôturé ailleurs : on revient à la liste
     setEcOpenIdState(prev=>{if(prev&&!list.some(x=>x.id===prev)){lsRemove('lpb_encours_ouvert');return null;}return prev;});
@@ -1203,7 +1276,7 @@ function App(){
     page==='accueil'&&h(PageAccueil,{residents,onStart:(e,p)=>{const s={etab:e,pro:p};setSession(s);localStorage.setItem('lpb_session',JSON.stringify(s));setPage('recueil');},session}),
     page==='recueil'&&h(PageRecueil,{session,residents:residentsEtab,onSaved:()=>{loadRec();},showToast,isOnline,
       onPlusieursFois:(activite,date)=>{setEcPrefill({etab:session?.etab||'',activite,date});setEcOpenId(null);setPage('encours');}}),
-    page==='encours'&&h(PageEnCours,{session,residents,recueils,enCours,enCoursErr,openId:ecOpenId,setOpenId:setEcOpenId,
+    page==='encours'&&h(PageEnCours,{session,residents,recueils,enCours,enCoursErr,absentsOk,openId:ecOpenId,setOpenId:setEcOpenId,
       prefill:ecPrefill,clearPrefill:()=>setEcPrefill(null),reloadEnCours:loadEnCours,onChanged:loadRec,showToast,isOnline}),
     page==='residents'&&h(PageResidents,{residents,onChanged:()=>{loadRes();loadRec();},showToast,isOnline}),
     page==='historique'&&h(PageHistorique,{recueils,pendingCount:pending.length,onChanged:loadRec,showToast,isOnline}),
